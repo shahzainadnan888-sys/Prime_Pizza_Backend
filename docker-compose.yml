@@ -1,0 +1,147 @@
+# Local development stack for Prime Pizza API.
+#
+# Default (Neon + local Redis):
+#   docker compose up --build
+#
+# Full local stack (Postgres + Redis + Adminer + migrate):
+#   docker compose --profile local-db --profile tools --profile migrate up --build
+#
+# Production: use Neon PostgreSQL + managed Redis. Do not rely on compose Postgres.
+
+name: prime-pizza
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: prime-pizza-api
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8000}:8000"
+    env_file:
+      - .env
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      DEBUG: ${DEBUG:-true}
+      HOST: 0.0.0.0
+      PORT: 8000
+      # Override locally when using --profile local-db:
+      #   DATABASE_URL=postgresql+asyncpg://prime:prime@postgres:5432/prime_pizza
+      REDIS_URL: ${COMPOSE_REDIS_URL:-redis://redis:6379/0}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-["localhost","127.0.0.1","api"]}
+      TRUST_X_FORWARDED_FOR: "false"
+      ENABLE_DOCS: "true"
+    volumes:
+      - api_logs:/app/logs
+      - api_data:/app/data
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 45s
+    networks:
+      - prime_net
+
+  redis:
+    image: redis:7-alpine
+    container_name: prime-pizza-redis
+    restart: unless-stopped
+    command:
+      [
+        "redis-server",
+        "--appendonly",
+        "yes",
+        "--maxmemory",
+        "256mb",
+        "--maxmemory-policy",
+        "allkeys-lru",
+      ]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - prime_net
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: prime-pizza-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: prime
+      POSTGRES_PASSWORD: prime
+      POSTGRES_DB: prime_pizza
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U prime -d prime_pizza"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - prime_net
+    profiles:
+      - local-db
+
+  adminer:
+    image: adminer:4
+    container_name: prime-pizza-adminer
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - prime_net
+    profiles:
+      - tools
+
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: prime-pizza-migrate
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${MIGRATE_DATABASE_URL:-postgresql+asyncpg://prime:prime@postgres:5432/prime_pizza}
+      REDIS_URL: redis://redis:6379/0
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - prime_net
+    profiles:
+      - migrate
+    restart: "no"
+
+volumes:
+  postgres_data:
+  redis_data:
+  api_logs:
+  api_data:
+
+networks:
+  prime_net:
+    driver: bridge

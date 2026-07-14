@@ -1,0 +1,46 @@
+# Git / VCS
+.git
+.gitignore
+.gitattributes
+
+# Virtual environments & caches
+.venv
+venv
+__pycache__
+**/__pycache__
+*.py[cod]
+*.egg-info
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.coverage
+htmlcov
+.tox
+
+# Environment & secrets (never bake into images)
+.env
+.env.*
+!.env.example
+
+# Local runtime artifacts
+logs
+data
+*.log
+
+# IDE / OS
+.idea
+.vscode
+.cursor
+*.swp
+.DS_Store
+Thumbs.db
+
+# Docs & tests (not required at runtime)
+tests
+docs
+*.md
+!README.md
+
+# Agent / local tooling
+agent-transcripts
+.cursor

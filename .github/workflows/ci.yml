@@ -1,0 +1,51 @@
+# CI — lint & test (production readiness preparation)
+name: ci
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      APP_ENV: test
+      DEBUG: "false"
+      SECRET_KEY: "ci-test-secret-key-at-least-32-characters-long!!"
+      DATABASE_URL: "postgresql+asyncpg://user:pass@localhost:5432/prime_test"
+      REDIS_URL: "redis://localhost:6379/0"
+      CLOUDINARY_CLOUD_NAME: "ci"
+      CLOUDINARY_API_KEY: "ci"
+      CLOUDINARY_API_SECRET: "ci"
+      OWNER_PHONE_NUMBER: "+923348957141"
+      OWNER_EMAIL: "owner@example.com"
+      FRONTEND_URL: "http://localhost:3000"
+      RATE_LIMIT_ENABLED: "false"
+      EMAIL_ENABLED: "false"
+      OTP_EXPIRE_SECONDS: "300"
+      OTP_MAX_ATTEMPTS: "5"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.13
+
+      - name: Install dependencies
+        run: uv sync --extra dev
+
+      - name: Ruff
+        run: uv run ruff check app tests scripts
+
+      - name: Unit & API tests (no live Redis lifespan for pure unit)
+        run: uv run pytest tests/unit -q --tb=line
+
+      - name: Validate settings load
+        run: uv run python scripts/validate_env.py
