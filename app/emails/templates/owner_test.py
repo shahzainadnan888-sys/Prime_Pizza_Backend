@@ -13,7 +13,7 @@ def render_owner_test(payload: OwnerTestEmailPayload) -> RenderedEmail:
     body = "".join(
         [
             section_heading("Connectivity Check"),
-            kv_row("Status", "<strong>Resend configuration verified</strong>"),
+            kv_row("Status", "<strong>Email configuration verified</strong>"),
             kv_row("Message", escape_html(payload.message)),
         ]
     )
@@ -26,7 +26,7 @@ def render_owner_test(payload: OwnerTestEmailPayload) -> RenderedEmail:
     text = "\n".join(
         [
             f"{payload.brand_name} — Email System Test",
-            "Status: Resend configuration verified",
+            "Status: Email configuration verified",
             f"Message: {payload.message}",
         ]
     )

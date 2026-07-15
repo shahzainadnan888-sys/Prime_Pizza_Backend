@@ -20,7 +20,7 @@ class HealthStatus(StrEnum):
 
 class UserRole(StrEnum):
     CUSTOMER = "customer"
-    OWNER = "owner"
+    CHEF = "chef"
 
 
 class OrderStatus(StrEnum):
@@ -122,13 +122,6 @@ class ProductSort(StrEnum):
     PREPARATION_TIME = "preparation_time"
 
 
-class OTPVerificationStatus(StrEnum):
-    PENDING = "pending"
-    VERIFIED = "verified"
-    EXPIRED = "expired"
-    FAILED = "failed"
-
-
 class AuditAction(StrEnum):
     CREATE = "create"
     UPDATE = "update"
@@ -150,10 +143,14 @@ class EmailDeliveryStatus(StrEnum):
 class EmailTemplateKey(StrEnum):
     """Transactional template keys — marketing keys intentionally omitted."""
 
+    WELCOME = "welcome"
+    ORDER_NOTIFICATION = "order_notification"
+    CONTACT_NOTIFICATION = "contact_notification"
+    CONTACT_CONFIRMATION = "contact_confirmation"
+    ADMIN_TEST = "admin_test"
+    # Legacy keys retained for existing email_logs rows
     OWNER_NEW_ORDER = "owner_new_order"
     OWNER_TEST = "owner_test"
-    # Future customer transactional templates (prepared, not implemented yet)
     ORDER_CONFIRMATION = "order_confirmation"
     ORDER_CANCELLED = "order_cancelled"
     ORDER_DELIVERED = "order_delivered"
-    PASSWORDLESS_LOGIN = "passwordless_login"

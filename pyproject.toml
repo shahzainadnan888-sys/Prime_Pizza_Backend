@@ -16,7 +16,6 @@ dependencies = [
     "redis>=5.2.0",
     "loguru>=0.7.3",
     "cloudinary>=1.41.0",
-    "resend>=2.6.0",
     "python-jose[cryptography]>=3.3.0",
     "bcrypt>=4.2.0",
     "httpx>=0.28.0",

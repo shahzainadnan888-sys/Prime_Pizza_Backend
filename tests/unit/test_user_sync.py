@@ -18,8 +18,12 @@ async def test_users_json_mirror_upsert_and_update(tmp_path: Path) -> None:
     mirror = UsersJsonMirror(path)
     user = User(
         id=uuid4(),
+        first_name="Customer",
+        last_name="4567",
         phone_number="+923001234567",
         full_name="Customer 4567",
+        email="customer@example.com",
+        password_hash="hashed",
         role=UserRole.CUSTOMER,
         is_active=True,
         is_verified=True,
@@ -40,3 +44,4 @@ async def test_users_json_mirror_upsert_and_update(tmp_path: Path) -> None:
 
     await mirror.remove(str(user.id))
     assert mirror.read_all() == []
+

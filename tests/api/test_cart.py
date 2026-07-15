@@ -25,8 +25,12 @@ from fastapi.testclient import TestClient
 def _user(*, role: UserRole = UserRole.CUSTOMER) -> User:
     return User(
         id=uuid4(),
+        first_name="Test",
+        last_name="User",
         phone_number="+923001234567",
         full_name="Customer",
+        email="test@example.com",
+        password_hash="hashed",
         role=role,
         is_active=True,
         is_verified=True,
@@ -290,3 +294,4 @@ def test_cart_add_validation_quantity_bounds(monkeypatch) -> None:
         assert response.status_code == 422
 
     app.dependency_overrides.clear()
+

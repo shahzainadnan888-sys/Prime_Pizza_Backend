@@ -24,8 +24,12 @@ from fastapi.testclient import TestClient
 def _user(*, role: UserRole = UserRole.CUSTOMER) -> User:
     return User(
         id=uuid4(),
+        first_name="Test",
+        last_name="User",
         phone_number="+923001234567",
         full_name="Customer",
+        email="test@example.com",
+        password_hash="hashed",
         role=role,
         is_active=True,
         is_verified=True,
@@ -66,6 +70,9 @@ def _order_detail(*, user_id=None) -> OrderDetailResponse:
         kitchen_notes=None,
         internal_notes=None,
         delivery_address_snapshot={"city": "Lahore"},
+        latitude=None,
+        longitude=None,
+        gps_accuracy=None,
         estimated_preparation_minutes=30,
         estimated_delivery_time=now,
         items=[],
@@ -179,7 +186,7 @@ def test_customer_cannot_access_foreign_order(monkeypatch) -> None:
 
 def test_owner_order_apis(monkeypatch) -> None:
     app = create_app(settings=get_settings())
-    owner = _user(role=UserRole.OWNER)
+    owner = _user(role=UserRole.CHEF)
     _override_auth(app, owner)
     detail = _order_detail()
     meta = PaginationMeta.from_totals(page=1, page_size=20, total_items=1)
@@ -268,3 +275,4 @@ def test_checkout_validation_failure_surface(monkeypatch) -> None:
         assert response.status_code == 422
 
     app.dependency_overrides.clear()
+

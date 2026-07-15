@@ -6,14 +6,13 @@ Production-grade FastAPI backend for the **Prime Pizza** restaurant platform —
 
 ## Features
 
-- Phone OTP authentication via **local Redis OTP** (pluggable provider architecture)
+- Email/password authentication + JWT
 - JWT access + rotating refresh tokens (Redis-backed blacklist / consume-once)
-- Role-based access control (customer / owner)
+- Role-based access control (customer / chef)
 - Catalog, deals, search, Cloudinary image uploads
 - Cart, wishlist, coupons, checkout validation
-- Order placement, tracking, owner status/payment management
-- Owner dashboard, analytics, charts, customers, audit logs
-- Resend transactional email (new-order + owner test)
+- Order placement, tracking, kitchen dashboard
+- Brevo transactional email (welcome, order notify, contact)
 - Redis caching, rate limiting, maintenance mode
 - Structured logging, health probes, security headers
 - Docker / Compose ready; Neon PostgreSQL + managed Redis for production
@@ -30,10 +29,9 @@ Client (Web / Mobile)
         │
         ├── Services ── Repositories ── PostgreSQL (Neon)
         │                     │
-        │                     └── Redis (cache, OTP, rate limits, sessions)
-        ├── Local OTP (Redis) / future SMS providers
+        │                     └── Redis (cache, rate limits, JWT sessions)
         ├── Cloudinary
-        └── Resend
+        └── Brevo
 ```
 
 Layering: **Router → Dependencies → Service → Repository → Model**.  
@@ -48,9 +46,9 @@ See `docs/architecture.md` and `docs/production-hardening.md`.
 | API | FastAPI, Pydantic v2, Uvicorn |
 | DB | PostgreSQL (Neon), SQLAlchemy 2.0 async, Alembic |
 | Cache | Redis (Upstash or local) |
-| Auth | Local Redis OTP, python-jose JWT, bcrypt |
+| Auth | Email/password, python-jose JWT, bcrypt |
 | Media | Cloudinary |
-| Email | Resend |
+| Email | Brevo |
 | Logging | Loguru (JSON + rotation) |
 | Packaging | `uv` / hatchling, Python 3.13+ |
 
@@ -87,19 +85,17 @@ python scripts/validate_env.py
 | Variable | Purpose |
 |----------|---------|
 | `SECRET_KEY` | JWT signing (≥32 chars; ≥48 in production) |
-| `OWNER_PHONE_NUMBER` | E.164 owner phone (maps to owner role) |
-| `OWNER_EMAIL` | Owner notification recipient |
 | `DATABASE_URL` | Neon / Postgres URL |
 | `REDIS_URL` | Redis URL (`rediss://` in production) |
-| `OTP_EXPIRE_SECONDS` | OTP TTL (alias `OTP_EXPIRY_SECONDS`) |
-| `OTP_MAX_ATTEMPTS` | Max verify attempts per challenge |
+| `CHEF_EMAIL` / `CHEF_PASSWORD` | Kitchen chef account (bootstrapped on startup) |
+| `OWNER_EMAIL` | Order notification recipient |
 | `CLOUDINARY_CLOUD_NAME` / `API_KEY` / `API_SECRET` | Image CDN |
 | `APP_ENV` | `development` \| `staging` \| `production` \| `test` |
 | `FRONTEND_URL` | CORS origin (HTTPS in production) |
 
 ### Strongly recommended
 
-`RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `ALLOWED_HOSTS`, `DEBUG=false` (production).
+`BREVO_API_KEY`, `BREVO_SENDER_EMAIL`, `ADMIN_EMAIL`, `ALLOWED_HOSTS`, `DEBUG=false` (production).
 
 Full list: `.env.example`.
 
@@ -158,13 +154,12 @@ Production: Upstash (`rediss://`) or equivalent managed Redis.
 
 ---
 
-## Cloudinary / Resend
+## Integrations
 
 | Provider | Used for |
 |----------|----------|
 | Cloudinary | Avatars & product images (`resource_type=image`) |
-| Resend | Owner new-order email + admin test email |
-| Local OTP | Phone login codes via Redis (no SMS vendor) |
+| Brevo | Welcome, order notification, contact emails |
 
 Configure via env; readiness reflected on `GET /health/services`.
 
@@ -200,7 +195,8 @@ app/
   database/           # Engine, session, mixins
   dependencies/       # FastAPI DI
   emails/             # Templates + sanitizers
-  integrations/       # Redis, Cloudinary, Resend
+  integrations/       # Redis, Cloudinary, Brevo
+  templates/          # HTML email templates
   middleware/         # Security, rate limit, … 
   models/             # SQLAlchemy models
   monitoring/         # In-process metrics
@@ -230,7 +226,7 @@ api.md                # Frontend API contract
 | CORS failures | `FRONTEND_URL` exact match; `ALLOWED_HOSTS` |
 | 429 responses | Rate limits / OTP budgets; wait `Retry-After` |
 | Docs missing | Not exposed when `APP_ENV=production` |
-| OTP failures | Check Redis; read Development OTP banner in server terminal |
+| OTP failures | Check Twilio credentials / Verify SID; Redis session keys; Twilio console logs |
 
 ---
 

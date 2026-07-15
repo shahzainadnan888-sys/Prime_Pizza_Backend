@@ -110,8 +110,12 @@ async def test_user_sync_includes_avatar_url(tmp_path: Path) -> None:
     sync = UserSyncService(mirror=UsersJsonMirror(path))
     user = User(
         id=uuid4(),
+        first_name="Customer",
+        last_name="4567",
         phone_number="+923001234567",
         full_name="Customer 4567",
+        email="customer@example.com",
+        password_hash="hashed",
         role=UserRole.CUSTOMER,
         is_active=True,
         is_verified=True,
@@ -129,3 +133,4 @@ async def test_user_sync_includes_avatar_url(tmp_path: Path) -> None:
     await sync.sync_user_best_effort(user)
     rows = UsersJsonMirror(path).read_all()
     assert rows[0]["full_name"] == "Synced Name"
+

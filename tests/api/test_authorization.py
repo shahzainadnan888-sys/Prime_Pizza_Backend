@@ -17,8 +17,12 @@ from fastapi.testclient import TestClient
 def _user(role: UserRole) -> User:
     return User(
         id=uuid4(),
+        first_name="Test",
+        last_name="User",
         phone_number="+923001234567",
         full_name="API User",
+        email="test@example.com",
+        password_hash="hashed",
         role=role,
         is_active=True,
         is_verified=True,
@@ -49,7 +53,7 @@ def _build_protected_app() -> FastAPI:
 
 def test_owner_dependency_allows_owner(monkeypatch) -> None:
     app = _build_protected_app()
-    owner = _user(UserRole.OWNER)
+    owner = _user(UserRole.CHEF)
 
     async def _current_user():
         return owner
@@ -105,7 +109,7 @@ def test_permission_dependency_forbids_customer_product_create() -> None:
 
 def test_permission_dependency_allows_owner_product_create() -> None:
     app = _build_protected_app()
-    owner = _user(UserRole.OWNER)
+    owner = _user(UserRole.CHEF)
 
     async def _current_user():
         return owner
@@ -126,3 +130,4 @@ def test_unauthenticated_owner_route_returns_401() -> None:
     with TestClient(app) as client:
         response = client.get("/__test/owner-only")
         assert response.status_code == 401
+

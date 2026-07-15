@@ -39,8 +39,16 @@ async def require_owner(
     user: User = Depends(get_verified_user),
     authz: AuthorizationService = Depends(get_authorization_service),
 ) -> User:
-    """Platform owner only."""
+    """Chef-only access (legacy owner name)."""
     return authz.require_owner(user)
+
+
+async def require_chef(
+    user: User = Depends(get_verified_user),
+    authz: AuthorizationService = Depends(get_authorization_service),
+) -> User:
+    """Kitchen chef only — customers receive HTTP 403 Forbidden."""
+    return authz.require_chef(user)
 
 
 def require_permission(*permissions: Permission | str) -> Callable[..., User]:

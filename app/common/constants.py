@@ -11,8 +11,8 @@ class AppConstants:
     API_VERSION: str = "1.0.0"
     API_DESCRIPTION: str = (
         "Production backend for the Prime Pizza restaurant platform. "
-        "Phone OTP authentication, catalog, cart, checkout, orders, and owner operations. "
-        "Authenticate with `Authorization: Bearer <access_token>` obtained from `/api/v1/auth/verify-otp`. "
+        "Email/password authentication, catalog, cart, checkout, orders, and kitchen operations. "
+        "Authenticate with `Authorization: Bearer <access_token>` obtained from `/api/v1/auth/login`. "
         "Errors use a consistent JSON envelope; never expose stack traces to clients."
     )
     DEFAULT_PAGE: int = 1

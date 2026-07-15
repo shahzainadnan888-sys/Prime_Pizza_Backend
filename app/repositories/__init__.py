@@ -15,10 +15,9 @@ from app.repositories.order import (
     OrderRepository,
     OrderTimelineRepository,
 )
-from app.repositories.otp_log import OTPLogRepository
 from app.repositories.preference import PreferenceRepository
 from app.repositories.product import ProductRepository
-from app.repositories.redis_auth import RedisOTPRepository
+from app.repositories.redis_auth import RedisAuthRepository
 from app.repositories.user import UserRepository
 from app.repositories.variant import VariantRepository
 from app.repositories.wishlist import WishlistItemRepository, WishlistRepository
@@ -37,7 +36,6 @@ __all__ = [
     "EmailLogRepository",
     "ExtraOptionRepository",
     "NotificationRepository",
-    "OTPLogRepository",
     "OrderNumberSequenceRepository",
     "OrderRepository",
     "OrderTimelineRepository",
@@ -45,7 +43,7 @@ __all__ = [
     "ProductImageRepository",
     "ProductOptionRepository",
     "ProductRepository",
-    "RedisOTPRepository",
+    "RedisAuthRepository",
     "UserRepository",
     "VariantRepository",
     "WishlistItemRepository",

@@ -1,7 +1,8 @@
-"""Base JSON mirror contract — implementation deferred to auth/user phases."""
+"""Base JSON mirror contract for PostgreSQL dual-write companions."""
 
 from __future__ import annotations
 
+import asyncio
 import json
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -12,7 +13,7 @@ class BaseJsonMirror(ABC):
     """
     Dual-write helper contract.
 
-    Future flow after a successful PostgreSQL write:
+    After a successful PostgreSQL write:
       1. Persist entity in Postgres (source of truth)
       2. Call `upsert()` / `remove()` to mirror into `data/*.json`
       3. Failures in the mirror layer must be logged, not silently ignored
@@ -38,14 +39,20 @@ class BaseJsonMirror(ABC):
             encoding="utf-8",
         )
 
+    async def read_all_async(self) -> list[dict[str, Any]]:
+        return await asyncio.to_thread(self.read_all)
+
+    async def write_all_async(self, rows: list[dict[str, Any]]) -> None:
+        await asyncio.to_thread(self.write_all, rows)
+
     @abstractmethod
     def serialize(self, entity: Any) -> dict[str, Any]:
         """Convert an ORM entity into a JSON-safe dict."""
 
     @abstractmethod
     async def upsert(self, entity: Any) -> None:
-        """Insert or replace a mirrored row — implement in a later phase."""
+        """Insert or replace a mirrored row."""
 
     @abstractmethod
     async def remove(self, entity_id: str) -> None:
-        """Remove a mirrored row — implement in a later phase."""
+        """Remove a mirrored row."""

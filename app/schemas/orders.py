@@ -6,7 +6,7 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.common.enums import OrderStatus, PaymentMethod, PaymentStatus
 
@@ -16,6 +16,25 @@ class PlaceOrderRequest(BaseModel):
     payment_method: PaymentMethod = PaymentMethod.CASH_ON_DELIVERY
     notes: str | None = Field(default=None, max_length=2000)
     idempotency_key: str | None = Field(default=None, min_length=8, max_length=64)
+    # Optional live GPS from the customer device during checkout.
+    latitude: Decimal | None = Field(default=None, ge=Decimal("-90"), le=Decimal("90"))
+    longitude: Decimal | None = Field(default=None, ge=Decimal("-180"), le=Decimal("180"))
+    gps_accuracy: Decimal | None = Field(
+        default=None,
+        ge=Decimal("0"),
+        description="GPS accuracy in meters, when reported by the device",
+    )
+
+    @model_validator(mode="after")
+    def gps_pair_consistency(self) -> PlaceOrderRequest:
+        has_lat = self.latitude is not None
+        has_lng = self.longitude is not None
+        if has_lat != has_lng:
+            raise ValueError("latitude and longitude must be provided together")
+        if self.gps_accuracy is not None and not (has_lat and has_lng):
+            raise ValueError("gps_accuracy requires latitude and longitude")
+        return self
+
 
 
 class CancelOrderRequest(BaseModel):
@@ -122,6 +141,9 @@ class OrderDetailResponse(BaseModel):
     kitchen_notes: str | None = None
     internal_notes: str | None = None
     delivery_address_snapshot: dict | None = None
+    latitude: Decimal | None = None
+    longitude: Decimal | None = None
+    gps_accuracy: Decimal | None = None
     estimated_preparation_minutes: int | None = None
     estimated_delivery_time: datetime | None = None
     items: list[OrderItemResponse] = Field(default_factory=list)

@@ -1,37 +1,34 @@
-# Transactional Email Notifications
+# Email (Brevo)
 
-Resend-backed ownership notifications. Marketing / promo / newsletter out of scope.
+Transactional email via Brevo. Marketing / promo / newsletter out of scope.
 
-## Trigger
+## Flow
 
-1. Customer places order
-2. Checkout transaction **commits**
-3. `OrderService` builds an `OrderEmailPayload` snapshot
-4. `EmailService.notify_owner_new_order` enqueues an asyncio task
-5. Background task renders HTML + text, retries Resend send, writes `email_logs`
+1. Business action commits (register / order / contact)
+2. Service enqueues email through `EmailService` (`InProcessEmailQueue`)
+3. Background task renders HTML templates, retries Brevo send, writes `email_logs`
+4. Failures are logged — primary API success is never rolled back
 
-Order API responses do **not** wait for Resend. Email failures never roll back orders.
+## Templates (`app/templates/`)
 
-## Configuration (.env only)
+| File | Trigger |
+|------|---------|
+| `welcome_email.html` | Customer registration |
+| `order_notification.html` | Customer places order → `ADMIN_EMAIL` |
+| `contact_notification.html` | Contact form → admin |
+| `contact_confirmation.html` | Contact form → customer |
+
+## Environment
 
 | Variable | Purpose |
 |----------|---------|
-| `RESEND_API_KEY` | Provider key |
-| `RESEND_FROM_EMAIL` | From address (dev onboarding sender or verified domain) |
-| `OWNER_EMAIL` | Primary owner recipient |
-| `OWNER_NOTIFICATION_EMAILS` | Optional comma-separated extra owners |
+| `BREVO_API_KEY` | Provider key |
+| `BREVO_SENDER_NAME` | From display name |
+| `BREVO_SENDER_EMAIL` | From address (verified domain) |
+| `ADMIN_EMAIL` | Order + contact admin recipient |
 | `EMAIL_ENABLED` | Kill switch |
-| `EMAIL_MAX_RETRIES` | Attempts (default 3) |
-| `EMAIL_LOGO_URL` | Optional logo for HTML header |
+| `EMAIL_MAX_RETRIES` | Retry budget |
 
-Switching from Resend test sender → `support@primepizza.com` requires **only** updating `RESEND_FROM_EMAIL`.
+## Queue-ready
 
-## Owner test
-
-`POST /api/v1/admin/test-email` (permission `email.test`)
-
-## Templates
-
-- `owner_new_order` — live
-- `owner_test` — live
-- `order_confirmation` / `order_cancelled` / `order_delivered` — stubs for customer emails
+`EmailQueue` protocol + `InProcessEmailQueue` today. Swap for Celery/RQ later without changing endpoints.

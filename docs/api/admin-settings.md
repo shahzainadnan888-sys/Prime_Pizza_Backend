@@ -1,82 +1,391 @@
 # Admin Settings
 
-Back to [`api.md`](../../api.md) · [`index`](README.md)
+## List Settings
 
-## `GET /api/v1/admin/settings`
+### Endpoint
 
-**Summary:** List Settings
+`GET /api/v1/admin/settings`
 
-**Auth:** Bearer + owner
+### Description
 
-**Success responses:** `200`
+List Settings
+
+### Authentication Required
+
+Yes — Bearer access token
+
+### Required Role
+
+`chef` (permission-gated; no separate admin role)
+
+### Headers
+
+| Header | Required |
+|--------|----------|
+| `Authorization: Bearer <access_token>` | yes |
+
+### Path Parameters
+
+_None._
+
+### Query Parameters
+
+_None._
+
+### Request Body Schema
+
+_No request body._
+
+### Validation Rules
+
+_See field constraints in the request schema table (and query/path params)._
+
+### Response Schema
+
+Success status: **200**
+
+Envelope: `success`, `message`, `data`, `request_id` (and `meta` when paginated).
+
+**`data` schema**
+
+_No fields (or opaque object)._
+
+### Success Responses
+
+- `200` — success (see Example Response / Response Schema)
+
+### Error Responses
+
+| Code | Description |
+|------|-------------|
+| `200` | Successful Response |
+
+Also see [Global error responses](#global-error-responses). Common for this route:
+
+- `401` — missing/invalid Bearer token (protected routes)
+- `403` — authenticated but wrong role/permission
+- `422` — validation failure (body/query/path)
+- `429` — rate limited
 
 ---
 
-## `PUT /api/v1/admin/settings`
+## Bulk Update Settings
 
-**Summary:** Bulk Update Settings
+### Endpoint
 
-**Auth:** Bearer + owner
+`PUT /api/v1/admin/settings`
 
-**Body**
+### Description
 
-- Content-Type: `application/json`
-- Schema: `SystemSettingsBulkUpdateRequest`
+Bulk Update Settings
 
-| Field | Type | Required |
-|-------|------|----------|
-| `settings` | `object` | yes |
+### Authentication Required
 
-**Success responses:** `200`
+Yes — Bearer access token
+
+### Required Role
+
+`chef` (permission-gated; no separate admin role)
+
+### Headers
+
+| Header | Required |
+|--------|----------|
+| `Authorization: Bearer <access_token>` | yes |
+| `Content-Type: application/json` | yes (JSON bodies) |
+
+### Path Parameters
+
+_None._
+
+### Query Parameters
+
+_None._
+
+### Request Body Schema
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `settings` | Settings | yes | — |
+
+### Example Request
+
+```http
+PUT /api/v1/admin/settings HTTP/1.1
+Host: {BASE_URL}
+Authorization: Bearer <access_token>
+Content-Type: application/json
+
+{
+  "settings": {}
+}
+```
+
+### Validation Rules
+
+- Required body fields: `settings`
+
+### Response Schema
+
+Success status: **200**
+
+Envelope: `success`, `message`, `data`, `request_id` (and `meta` when paginated).
+
+**`data` schema**
+
+_No fields (or opaque object)._
+
+### Success Responses
+
+- `200` — success (see Example Response / Response Schema)
+
+### Error Responses
+
+| Code | Description |
+|------|-------------|
+| `200` | Successful Response |
+| `422` | Validation Error |
+
+Also see [Global error responses](#global-error-responses). Common for this route:
+
+- `401` — missing/invalid Bearer token (protected routes)
+- `403` — authenticated but wrong role/permission
+- `422` — validation failure (body/query/path)
+- `429` — rate limited
 
 ---
 
-## `GET /api/v1/admin/settings/restaurant`
+## Get Restaurant Settings
 
-**Summary:** Get Restaurant Settings
+### Endpoint
 
-**Auth:** Bearer + owner
+`GET /api/v1/admin/settings/restaurant`
 
-**Success responses:** `200`
+### Description
+
+Get Restaurant Settings
+
+### Authentication Required
+
+Yes — Bearer access token
+
+### Required Role
+
+`chef` (permission-gated; no separate admin role)
+
+### Headers
+
+| Header | Required |
+|--------|----------|
+| `Authorization: Bearer <access_token>` | yes |
+
+### Path Parameters
+
+_None._
+
+### Query Parameters
+
+_None._
+
+### Request Body Schema
+
+_No request body._
+
+### Validation Rules
+
+_See field constraints in the request schema table (and query/path params)._
+
+### Response Schema
+
+Success status: **200**
+
+Envelope: `success`, `message`, `data`, `request_id` (and `meta` when paginated).
+
+**`data` schema**
+
+_No fields (or opaque object)._
+
+### Success Responses
+
+- `200` — success (see Example Response / Response Schema)
+
+### Error Responses
+
+| Code | Description |
+|------|-------------|
+| `200` | Successful Response |
+
+Also see [Global error responses](#global-error-responses). Common for this route:
+
+- `401` — missing/invalid Bearer token (protected routes)
+- `403` — authenticated but wrong role/permission
+- `422` — validation failure (body/query/path)
+- `429` — rate limited
 
 ---
 
-## `GET /api/v1/admin/settings/{key}`
+## Get Setting
 
-**Summary:** Get Setting
+### Endpoint
 
-**Auth:** Bearer + owner
+`GET /api/v1/admin/settings/{key}`
 
-**Path params**
+### Description
 
-- `key` (string, required)
+Get Setting
 
-**Success responses:** `200`
+### Authentication Required
+
+Yes — Bearer access token
+
+### Required Role
+
+`chef` (permission-gated; no separate admin role)
+
+### Headers
+
+| Header | Required |
+|--------|----------|
+| `Authorization: Bearer <access_token>` | yes |
+
+### Path Parameters
+
+| Name | Required | Type | Description |
+|------|----------|------|-------------|
+| `key` | yes | string | — |
+
+### Query Parameters
+
+_None._
+
+### Request Body Schema
+
+_No request body._
+
+### Validation Rules
+
+_See field constraints in the request schema table (and query/path params)._
+
+### Response Schema
+
+Success status: **200**
+
+Envelope: `success`, `message`, `data`, `request_id` (and `meta` when paginated).
+
+**`data` schema**
+
+_No fields (or opaque object)._
+
+### Success Responses
+
+- `200` — success (see Example Response / Response Schema)
+
+### Error Responses
+
+| Code | Description |
+|------|-------------|
+| `200` | Successful Response |
+| `422` | Validation Error |
+
+Also see [Global error responses](#global-error-responses). Common for this route:
+
+- `401` — missing/invalid Bearer token (protected routes)
+- `403` — authenticated but wrong role/permission
+- `422` — validation failure (body/query/path)
+- `429` — rate limited
 
 ---
 
-## `PUT /api/v1/admin/settings/{key}`
+## Upsert Setting
 
-**Summary:** Upsert Setting
+### Endpoint
 
-**Auth:** Bearer + owner
+`PUT /api/v1/admin/settings/{key}`
 
-**Path params**
+### Description
 
-- `key` (string, required)
+Upsert Setting
 
-**Body**
+### Authentication Required
 
-- Content-Type: `application/json`
-- Schema: `SystemSettingUpsertRequest`
+Yes — Bearer access token
 
-| Field | Type | Required |
-|-------|------|----------|
-| `value` | `nullable` | no |
-| `value_json` | `nullable` | no |
-| `description` | `nullable` | no |
-| `is_public` | `nullable` | no |
+### Required Role
 
-**Success responses:** `200`
+`chef` (permission-gated; no separate admin role)
+
+### Headers
+
+| Header | Required |
+|--------|----------|
+| `Authorization: Bearer <access_token>` | yes |
+| `Content-Type: application/json` | yes (JSON bodies) |
+
+### Path Parameters
+
+| Name | Required | Type | Description |
+|------|----------|------|-------------|
+| `key` | yes | string | — |
+
+### Query Parameters
+
+_None._
+
+### Request Body Schema
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `value` | string | null | no | — |
+| `value_json` | object | array<any> | null | no | — |
+| `description` | string | null | no | — |
+| `is_public` | boolean | null | no | — |
+
+### Example Request
+
+```http
+PUT /api/v1/admin/settings/{key} HTTP/1.1
+Host: {BASE_URL}
+Authorization: Bearer <access_token>
+Content-Type: application/json
+
+{
+  "value": null,
+  "value_json": null,
+  "description": null,
+  "is_public": null
+}
+```
+
+### Validation Rules
+
+_See field constraints in the request schema table (and query/path params)._
+
+### Response Schema
+
+Success status: **200**
+
+Envelope: `success`, `message`, `data`, `request_id` (and `meta` when paginated).
+
+**`data` schema**
+
+_No fields (or opaque object)._
+
+### Success Responses
+
+- `200` — success (see Example Response / Response Schema)
+
+### Error Responses
+
+| Code | Description |
+|------|-------------|
+| `200` | Successful Response |
+| `422` | Validation Error |
+
+Also see [Global error responses](#global-error-responses). Common for this route:
+
+- `401` — missing/invalid Bearer token (protected routes)
+- `403` — authenticated but wrong role/permission
+- `422` — validation failure (body/query/path)
+- `429` — rate limited
 
 ---

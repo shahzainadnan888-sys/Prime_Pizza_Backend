@@ -13,9 +13,9 @@ from sqlalchemy import text
 from app.common.constants import APIMessages, AppConstants
 from app.common.enums import HealthStatus
 from app.database.session import get_engine
+from app.integrations.brevo.client import is_brevo_configured
 from app.integrations.cloudinary.client import is_cloudinary_configured
 from app.integrations.redis.client import redis_ping
-from app.integrations.resend.client import is_resend_configured
 from app.monitoring.metrics import metrics
 from app.schemas.health import ComponentHealth, HealthResponse
 from app.schemas.response import SuccessResponse
@@ -164,9 +164,8 @@ async def health_services(request: Request) -> JSONResponse:
     """
     Aggregate readiness for database, Redis, and configured third-party services.
 
-    Cloudinary / Resend checks verify configuration presence (not live outbound
-    calls) to avoid costing API credits on every probe. OTP uses the local
-    Redis provider and requires no third-party SMS credentials.
+    Cloudinary / Brevo checks verify configuration presence (not live
+    outbound calls) to avoid costing API credits on every probe.
     """
     settings = request.app.state.settings
     components: dict[str, object] = {}
@@ -184,34 +183,32 @@ async def health_services(request: Request) -> JSONResponse:
         overall_ok = False
         components["database"] = _component(ok=False, detail="Connectivity check failed")
 
-    # Redis (also backs local OTP)
+    # Redis (auth rate limits, refresh tokens, blacklist)
     started = time.perf_counter()
     try:
         ok = await redis_ping()
         if not ok:
             raise RuntimeError("ping failed")
         components["redis"] = _component(ok=True, latency_ms=(time.perf_counter() - started) * 1000)
-        components["otp_provider"] = _component(ok=True, detail="local")
     except Exception:
         overall_ok = False
         components["redis"] = _component(ok=False, detail="Connectivity check failed")
-        components["otp_provider"] = _component(ok=False, detail="Redis required for local OTP")
 
     # Configuration presence (no live network calls)
     cloudinary_ok = is_cloudinary_configured()
-    resend_ok = is_resend_configured() or not settings.email_enabled
+    brevo_ok = is_brevo_configured() or not settings.email_enabled
 
     components["cloudinary"] = _component(
         ok=cloudinary_ok,
         detail=None if cloudinary_ok else "Cloudinary credentials missing",
     )
-    components["resend"] = _component(
-        ok=resend_ok,
-        detail=None if resend_ok else "Resend API key missing while EMAIL_ENABLED=true",
+    components["brevo"] = _component(
+        ok=brevo_ok,
+        detail=None if brevo_ok else "Brevo API key missing while EMAIL_ENABLED=true",
     )
     if not cloudinary_ok:
         overall_ok = False
-    if not resend_ok:
+    if not brevo_ok:
         degraded = True
 
     components["configuration"] = _component(

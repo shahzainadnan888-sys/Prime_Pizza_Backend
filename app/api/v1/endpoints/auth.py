@@ -9,12 +9,11 @@ from app.dependencies.auth import get_auth_service, get_current_user, get_token_
 from app.models.user import User
 from app.schemas.auth import (
     AuthResponse,
+    LoginRequest,
     LogoutRequest,
     MeResponse,
     RefreshTokenRequest,
-    SendOTPRequest,
-    SendOTPResponse,
-    VerifyOTPRequest,
+    RegisterRequest,
 )
 from app.schemas.response import MessageResponse, SuccessResponse
 from app.services.auth import AuthService
@@ -24,63 +23,53 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
 @router.post(
-    "/send-otp",
-    response_model=SuccessResponse[SendOTPResponse],
-    response_model_exclude_none=True,
-    status_code=status.HTTP_200_OK,
-    summary="Send OTP (local Redis provider)",
+    "/register",
+    response_model=SuccessResponse[AuthResponse],
+    status_code=status.HTTP_201_CREATED,
+    summary="Register a customer account",
     description=(
-        "Generates a cryptographically secure 6-digit OTP, stores it in Redis "
-        "(TTL 5 minutes), prints it to the server terminal, and optionally "
-        "echoes it in the response when APP_ENV=development. Rate limited per "
-        "phone, IP, and globally."
+        "Creates a customer with email/password (bcrypt), persists to PostgreSQL, "
+        "mirrors to data/users.json, and returns a JWT access + refresh pair."
     ),
     responses={
-        200: {"description": "OTP challenge created"},
-        422: {"description": "Invalid phone number"},
-        429: {"description": "OTP or HTTP rate limit exceeded"},
+        201: {"description": "Registered — returns token pair and user profile"},
+        409: {"description": "Email or phone already registered"},
+        422: {"description": "Validation error"},
+        429: {"description": "Rate limited"},
     },
 )
-async def send_otp(
-    body: SendOTPRequest,
+async def register(
+    body: RegisterRequest,
     request: Request,
     auth: AuthService = Depends(get_auth_service),
-) -> SuccessResponse[SendOTPResponse]:
-    data = await auth.send_otp(body.phone_number, client_ip=get_client_ip(request))
+) -> SuccessResponse[AuthResponse]:
+    data = await auth.register(body, client_ip=get_client_ip(request))
     return SuccessResponse(
         success=True,
-        message=data.message,
+        message="Registration successful",
         data=data,
         request_id=getattr(request.state, "request_id", None),
     )
 
 
 @router.post(
-    "/verify-otp",
+    "/login",
     response_model=SuccessResponse[AuthResponse],
     status_code=status.HTTP_200_OK,
-    summary="Verify OTP and issue tokens",
-    description=(
-        "Verifies the OTP, upserts the user (owner phone becomes owner role), "
-        "mirrors identity to data/users.json, and returns JWT access + refresh tokens."
-    ),
+    summary="Login with email and password",
+    description="Validates credentials and issues a JWT access + refresh pair.",
     responses={
-        200: {"description": "Authenticated — returns token pair and user profile"},
-        400: {"description": "Invalid or expired OTP"},
-        422: {"description": "Validation error"},
+        200: {"description": "Authenticated"},
+        401: {"description": "Invalid credentials"},
         429: {"description": "Rate limited"},
     },
 )
-async def verify_otp(
-    body: VerifyOTPRequest,
+async def login(
+    body: LoginRequest,
     request: Request,
     auth: AuthService = Depends(get_auth_service),
 ) -> SuccessResponse[AuthResponse]:
-    data = await auth.verify_otp(
-        body.phone_number,
-        body.code,
-        client_ip=get_client_ip(request),
-    )
+    data = await auth.login(body, client_ip=get_client_ip(request))
     return SuccessResponse(
         success=True,
         message="Authentication successful",

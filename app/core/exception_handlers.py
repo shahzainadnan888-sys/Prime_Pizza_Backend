@@ -22,7 +22,7 @@ _SENSITIVE_DETAIL_CODES = {
     "rate_limit_exceeded",
     "forbidden",
     "cloudinary_service_error",
-    "resend_service_error",
+    "brevo_service_error",
     "invalid_phone",
     "database_error",
     "redis_error",

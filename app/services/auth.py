@@ -1,4 +1,4 @@
-"""Authentication orchestration service (phone OTP + JWT)."""
+"""Authentication orchestration service (email/password + JWT)."""
 
 from __future__ import annotations
 
@@ -8,35 +8,35 @@ from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.authorization.roles import RoleAssignmentService
-from app.common.enums import OTPVerificationStatus
+from app.common.enums import UserRole
 from app.config.settings import Settings
 from app.core.exceptions import (
-    ExpiredOTPException,
+    ConflictException,
     ExpiredTokenException,
-    InvalidOTPException,
     InvalidTokenException,
     UnauthorizedException,
+    ValidationException,
 )
 from app.models.user import User
-from app.repositories.otp_log import OTPLogRepository
-from app.repositories.redis_auth import RedisOTPRepository
+from app.repositories.redis_auth import RedisAuthRepository
 from app.repositories.user import UserRepository
 from app.schemas.auth import (
     AuthResponse,
     AuthUserResponse,
+    LoginRequest,
     MeResponse,
-    SendOTPResponse,
+    RegisterRequest,
     TokenPairResponse,
 )
 from app.security.jwt import JWTService
+from app.security.passwords import hash_password, verify_password
 from app.services.base import BaseService
-from app.services.otp_provider import LocalOTPProvider, OTPProvider
-from app.services.phone import PhoneValidationService
+from app.services.email_service import EmailService
 from app.services.user_sync import UserSyncService
 
 
 class AuthService(BaseService):
-    """Complete phone-OTP authentication use-cases."""
+    """Email/password registration, login, and token lifecycle."""
 
     service_name = "auth"
 
@@ -45,130 +45,105 @@ class AuthService(BaseService):
         *,
         session: AsyncSession,
         settings: Settings,
-        redis_auth: RedisOTPRepository,
-        otp_provider: OTPProvider,
+        redis_auth: RedisAuthRepository,
         jwt_service: JWTService,
-        phone_service: PhoneValidationService,
         user_sync: UserSyncService,
+        email_service: EmailService | None = None,
     ) -> None:
         self._session = session
         self._settings = settings
         self._redis_auth = redis_auth
-        self._otp_provider = otp_provider
         self._jwt = jwt_service
-        self._phone = phone_service
         self._user_sync = user_sync
+        self._email = email_service
         self._users = UserRepository(session)
-        self._otp_logs = OTPLogRepository(session)
-        self._role_assignment = RoleAssignmentService(settings)
 
-    async def send_otp(self, phone_number: str, *, client_ip: str | None = None) -> SendOTPResponse:
-        phone = self._phone.normalize_and_validate(phone_number)
-        await self._redis_auth.enforce_send_rate_limit(phone, client_ip=client_ip)
-
-        challenge = self._otp_provider.create_challenge(phone)
-        await self._redis_auth.create_session(
-            phone_number=phone,
-            otp=challenge.code,
-            provider=challenge.provider,
-        )
-        await self._otp_logs.record_send(
-            phone_number=phone,
-            provider_sid=challenge.provider,
-            expire_seconds=challenge.expires_in,
-        )
-        await self._session.commit()
-
-        logger.info("OTP requested | phone={} | provider={}", phone, challenge.provider)
-        response = SendOTPResponse(
-            phone_number=phone,
-            expires_in=challenge.expires_in,
-            message="Verification code sent",
-        )
-        # Expose OTP only in development for frontend convenience.
-        if self._settings.app_env == "development":
-            response.otp = challenge.code
-        return response
-
-    async def verify_otp(
+    async def register(
         self,
-        phone_number: str,
-        code: str,
+        payload: RegisterRequest,
         *,
         client_ip: str | None = None,
     ) -> AuthResponse:
-        phone = self._phone.normalize_and_validate(phone_number)
-        await self._redis_auth.enforce_verify_rate_limit(phone, client_ip=client_ip)
+        email = payload.email.strip().lower()
+        await self._redis_auth.enforce_register_rate_limit(email, client_ip=client_ip)
 
-        try:
-            session = await self._redis_auth.get_session(phone)
-        except ExpiredOTPException:
-            await self._otp_logs.record_result(
-                phone_number=phone,
-                status=OTPVerificationStatus.EXPIRED,
-                attempt_count=0,
-                provider_sid=None,
-            )
-            await self._session.commit()
-            raise
+        if await self._users.get_by_email(email) is not None:
+            raise ConflictException("An account with this email already exists")
 
-        if session.failed_attempts >= self._settings.otp_max_attempts:
-            await self._otp_logs.record_result(
-                phone_number=phone,
-                status=OTPVerificationStatus.FAILED,
-                attempt_count=session.failed_attempts,
-                provider_sid=session.provider_sid or session.provider,
-            )
-            await self._session.commit()
-            await self._redis_auth.delete_session(phone)
-            raise InvalidOTPException("Too many invalid verification attempts")
+        if payload.phone_number and await self._users.get_by_phone(payload.phone_number) is not None:
+            raise ConflictException("An account with this phone number already exists")
 
-        approved = self._otp_provider.verify_challenge(phone, code, session.otp)
-        if not approved:
-            session.failed_attempts += 1
-            await self._redis_auth.save_session(session)
-            await self._otp_logs.record_result(
-                phone_number=phone,
-                status=OTPVerificationStatus.FAILED,
-                attempt_count=session.failed_attempts,
-                provider_sid=session.provider_sid or session.provider,
-            )
-            await self._session.commit()
-            logger.info(
-                "Login failed | reason=invalid_otp | phone={} | attempts={}",
-                phone,
-                session.failed_attempts,
-            )
-            if session.failed_attempts >= self._settings.otp_max_attempts:
-                await self._redis_auth.delete_session(phone)
-                raise InvalidOTPException("Too many invalid verification attempts")
-            raise InvalidOTPException("Invalid verification code")
-
-        user, is_new = await self._get_or_create_user(phone)
-        await self._otp_logs.record_result(
-            phone_number=phone,
-            status=OTPVerificationStatus.VERIFIED,
-            attempt_count=session.failed_attempts,
-            provider_sid=session.provider_sid or session.provider,
+        user = await self._users.create_registered_user(
+            first_name=payload.first_name,
+            last_name=payload.last_name,
+            email=email,
+            password_hash=hash_password(payload.password),
+            phone_number=payload.phone_number,
+            role=UserRole.CUSTOMER,
         )
         await self._session.commit()
-
-        # Delete OTP immediately after successful verification.
-        await self._redis_auth.delete_session(phone)
+        await self._session.refresh(user)
         await self._user_sync.sync_user_best_effort(user)
+
+        # Welcome email must not block/fail registration (prevents FE timeouts after commit).
+        if self._email is not None:
+            try:
+                self._email.schedule_welcome_email(
+                    customer_name=user.full_name or user.first_name,
+                    customer_email=user.email,
+                )
+            except Exception:
+                logger.exception(
+                    "Welcome email schedule failed after registration | user_id={} | email={}",
+                    user.id,
+                    email,
+                )
 
         tokens = await self._issue_tokens(user)
         logger.info(
-            "Login success | phone={} | user_id={} | role={} | is_new_user={}",
-            phone,
+            "Registration success | user_id={} | email={} | role={}",
             user.id,
+            email,
             user.role,
-            is_new,
         )
         return AuthResponse(
             user=AuthUserResponse.model_validate(user),
             tokens=tokens,
-            is_new_user=is_new,
+            is_new_user=True,
+        )
+
+    async def login(
+        self,
+        payload: LoginRequest,
+        *,
+        client_ip: str | None = None,
+    ) -> AuthResponse:
+        email = payload.email.strip().lower()
+        await self._redis_auth.enforce_login_rate_limit(email, client_ip=client_ip)
+
+        user = await self._users.get_by_email(email)
+        if user is None or not user.is_active:
+            logger.info("Login failed | reason=unknown_user | email={}", email)
+            raise UnauthorizedException("Invalid email or password")
+
+        if not verify_password(payload.password, user.password_hash):
+            logger.info("Login failed | reason=bad_password | email={}", email)
+            raise UnauthorizedException("Invalid email or password")
+
+        # Keep bootstrap chef credentials authoritative for role.
+        user = await self._sync_chef_role_if_needed(user, email)
+
+        await self._users.mark_login(user)
+        await self._session.commit()
+        await self._session.refresh(user)
+        await self._user_sync.sync_user_best_effort(user)
+
+        tokens = await self._issue_tokens(user)
+        logger.info("Login success | user_id={} | email={} | role={}", user.id, email, user.role)
+        return AuthResponse(
+            user=AuthUserResponse.model_validate(user),
+            tokens=tokens,
+            is_new_user=False,
         )
 
     async def refresh(self, refresh_token: str) -> AuthResponse:
@@ -193,6 +168,11 @@ class AuthService(BaseService):
         user = await self._users.get_by_id(UUID(str(user_id)))
         if user is None or not user.is_active:
             raise UnauthorizedException("User not found or inactive")
+
+        user = await self._sync_chef_role_if_needed(user, user.email or "")
+        if user.email and RoleAssignmentService(self._settings).is_chef_email(user.email):
+            await self._session.commit()
+            await self._session.refresh(user)
 
         await self._redis_auth.blacklist_token(
             jti=jti,
@@ -240,32 +220,74 @@ class AuthService(BaseService):
     async def get_me(self, user: User) -> MeResponse:
         return MeResponse.model_validate(user)
 
-    async def _get_or_create_user(self, phone: str) -> tuple[User, bool]:
-        role = self._role_assignment.resolve_role(phone)
-        existing = await self._users.get_by_phone(phone)
+    async def ensure_chef_account(self) -> User:
+        """Idempotently create or refresh the bootstrap kitchen chef account."""
+        email = self._settings.chef_email.strip().lower()
+        existing = await self._users.get_by_email(email)
         if existing is not None:
-            previous_role = existing.role
-            await self._users.mark_login(existing, role=role)
-            if previous_role != role:
-                logger.info(
-                    "Role synchronized from owner phone mapping | user_id={} | from={} | to={}",
-                    existing.id,
-                    previous_role,
-                    role,
-                )
-            return existing, False
-        created = await self._users.create_user(phone_number=phone, role=role)
-        logger.info(
-            "User created with role | user_id={} | role={} | phone={}",
-            created.id,
-            role,
-            phone,
+            changed = False
+            if existing.role != UserRole.CHEF:
+                existing.role = UserRole.CHEF
+                changed = True
+            if not existing.is_active:
+                existing.is_active = True
+                changed = True
+            if not existing.is_verified:
+                existing.is_verified = True
+                changed = True
+            if not verify_password(self._settings.chef_password, existing.password_hash):
+                existing.password_hash = hash_password(self._settings.chef_password)
+                changed = True
+            if changed:
+                await self._session.commit()
+                await self._session.refresh(existing)
+                await self._user_sync.sync_user_best_effort(existing)
+                logger.info("Chef account synchronized | user_id={} | email={}", existing.id, email)
+            return existing
+
+        chef = await self._users.create_registered_user(
+            first_name="Kitchen",
+            last_name="Chef",
+            email=email,
+            password_hash=hash_password(self._settings.chef_password),
+            phone_number=None,
+            role=UserRole.CHEF,
         )
-        return created, True
+        await self._session.commit()
+        await self._session.refresh(chef)
+        await self._user_sync.sync_user_best_effort(chef)
+        logger.info("Chef account created | user_id={} | email={}", chef.id, email)
+        return chef
+
+    async def _sync_chef_role_if_needed(self, user: User, email: str) -> User:
+        """Force bootstrap chef email onto the chef role before token issuance."""
+        if not RoleAssignmentService(self._settings).is_chef_email(email):
+            return user
+        changed = False
+        if user.role != UserRole.CHEF:
+            logger.warning(
+                "Chef email had non-chef role; correcting | user_id={} | role={}",
+                user.id,
+                user.role,
+            )
+            user.role = UserRole.CHEF
+            changed = True
+        if not user.is_verified:
+            user.is_verified = True
+            changed = True
+        if not user.is_active:
+            user.is_active = True
+            changed = True
+        if changed:
+            await self._session.flush()
+        return user
 
     async def _issue_tokens(self, user: User) -> TokenPairResponse:
+        if not user.email:
+            raise ValidationException("User email is required for token issuance")
         access, refresh, _access_jti, refresh_jti = self._jwt.create_token_pair(
             user_id=user.id,
+            email=user.email,
             phone_number=user.phone_number,
             role=str(user.role.value if hasattr(user.role, "value") else user.role),
         )
@@ -281,8 +303,3 @@ class AuthService(BaseService):
             token_type="bearer",
             expires_in=self._jwt.access_token_expires_seconds,
         )
-
-
-def build_default_otp_provider(settings: Settings) -> OTPProvider:
-    """Factory for the active OTP channel (local until a remote provider is wired)."""
-    return LocalOTPProvider(settings)

@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
 
 class User(BaseModel):
-    """Platform user (customer or owner)."""
+    """Platform user (customer or chef)."""
 
     __tablename__ = "users"
     __table_args__ = (
@@ -33,22 +33,25 @@ class User(BaseModel):
             "uq_users_phone_active",
             "phone_number",
             unique=True,
-            postgresql_where=text("deleted_at IS NULL"),
+            postgresql_where=text("deleted_at IS NULL AND phone_number IS NOT NULL"),
         ),
         Index(
             "uq_users_email_active",
             "email",
             unique=True,
-            postgresql_where=text("deleted_at IS NULL AND email IS NOT NULL"),
+            postgresql_where=text("deleted_at IS NULL"),
         ),
         Index("ix_users_role", "role"),
         Index("ix_users_is_active", "is_active"),
         Index("ix_users_full_name", "full_name"),
     )
 
-    phone_number: Mapped[str] = mapped_column(String(20), nullable=False)
+    first_name: Mapped[str] = mapped_column(String(80), nullable=False, server_default="")
+    last_name: Mapped[str] = mapped_column(String(80), nullable=False, server_default="")
+    phone_number: Mapped[str | None] = mapped_column(String(20), nullable=True)
     full_name: Mapped[str] = mapped_column(String(150), nullable=False)
-    email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    email: Mapped[str] = mapped_column(String(255), nullable=False)
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[UserRole] = mapped_column(
         pg_enum(UserRole, name="user_role"),
         nullable=False,
@@ -59,8 +62,8 @@ class User(BaseModel):
     is_verified: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,
-        default=False,
-        server_default="false",
+        default=True,
+        server_default="true",
     )
     last_login: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     avatar_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
@@ -101,7 +104,6 @@ class User(BaseModel):
     )
     audit_logs: Mapped[list[AuditLog]] = relationship(back_populates="user", passive_deletes=True)
 
-    # Backward-compatible alias used by older relationship name
     @property
     def notification_preference(self) -> UserPreference | None:
         return self.preferences

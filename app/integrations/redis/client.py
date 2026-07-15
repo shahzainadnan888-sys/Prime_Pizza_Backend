@@ -19,13 +19,14 @@ async def init_redis(settings: Settings) -> None:
         encoding="utf-8",
         decode_responses=True,
         health_check_interval=30,
-        socket_connect_timeout=5,
-        socket_timeout=5,
+        socket_connect_timeout=3,
+        socket_timeout=3,
+        retry_on_timeout=False,
         max_connections=settings.redis_max_connections,
     )
     # Validate connectivity early so startup fails fast on misconfiguration.
     await _redis_client.ping()
-    logger.info("Redis client initialized")
+    logger.info("Redis client initialized | connect_timeout=3s | socket_timeout=3s")
 
 
 async def close_redis() -> None:

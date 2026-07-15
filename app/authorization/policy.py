@@ -32,7 +32,12 @@ class AuthorizationService(BaseService):
     def require_role(self, user: User, *roles: str) -> User:
         current = str(user.role.value if hasattr(user.role, "value") else user.role)
         allowed = {str(role) for role in roles}
-        if current not in allowed:
+        # Accept legacy "owner" token as chef
+        if current == "chef":
+            allowed = allowed | {"chef"} if "owner" in allowed or "chef" in allowed else allowed
+        if "owner" in allowed:
+            allowed.add("chef")
+        if current not in allowed and not (current == "chef" and "owner" in allowed):
             logger.warning(
                 "Forbidden role | user_id={} | role={} | required={}",
                 user.id,
@@ -42,18 +47,19 @@ class AuthorizationService(BaseService):
             raise ForbiddenException("Insufficient role privileges")
         return user
 
-    def require_owner(self, user: User) -> User:
-        if not RoleService.is_owner(user.role):
-            logger.warning("Owner-only access denied | user_id={} | role={}", user.id, user.role)
-            raise ForbiddenException("Owner access required")
-        logger.info("Owner access | user_id={}", user.id)
+    def require_chef(self, user: User) -> User:
+        if not RoleService.is_chef(user.role):
+            logger.warning("Chef-only access denied | user_id={} | role={}", user.id, user.role)
+            raise ForbiddenException("Chef access required")
+        logger.info("Chef access | user_id={}", user.id)
         return user
+
+    def require_owner(self, user: User) -> User:
+        """Backward-compatible alias for require_chef."""
+        return self.require_chef(user)
 
     def require_customer(self, user: User) -> User:
         if not RoleService.is_customer(user.role):
-            # Owners may still act as customers for storefront flows
-            if RoleService.is_owner(user.role):
-                return user
             logger.warning("Customer access denied | user_id={} | role={}", user.id, user.role)
             raise ForbiddenException("Customer access required")
         return user

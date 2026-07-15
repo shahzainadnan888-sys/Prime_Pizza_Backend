@@ -29,8 +29,6 @@ def main() -> int:
 
     required = [
         "SECRET_KEY",
-        "OWNER_PHONE_NUMBER",
-        "OWNER_EMAIL",
         "DATABASE_URL",
         "REDIS_URL",
         "CLOUDINARY_CLOUD_NAME",
@@ -42,11 +40,14 @@ def main() -> int:
     from os import getenv
 
     recommended = [
-        "RESEND_API_KEY",
-        "RESEND_FROM_EMAIL",
+        "BREVO_API_KEY",
+        "BREVO_SENDER_EMAIL",
+        "BREVO_SENDER_NAME",
+        "ADMIN_EMAIL",
+        "CONTACT_RECEIVER_EMAIL",
         "ALLOWED_HOSTS",
-        "OTP_EXPIRE_SECONDS",
-        "OTP_MAX_ATTEMPTS",
+        "CHEF_EMAIL",
+        "CHEF_PASSWORD",
     ]
 
     missing = [key for key in required if not (getenv(key) or "").strip()]
@@ -72,17 +73,11 @@ def main() -> int:
 
     warnings = [key for key in recommended if not (getenv(key) or "").strip()]
 
-    print("Environment validation PASSED")
+    print("Environment validation OK")
     print(f"  APP_ENV={settings.app_env}")
-    print(f"  DEBUG={settings.debug}")
-    print(f"  API_V1_PREFIX={settings.api_v1_prefix}")
-    print(f"  docs_enabled={settings.docs_enabled}")
-    print(f"  email_configured={settings.is_email_configured}")
-    print(f"  otp_provider=local")
-    print(f"  otp_expire_seconds={settings.otp_expire_seconds}")
-    print(f"  owner_phone={settings.owner_phone_number}")
+    print(f"  CHEF_EMAIL={settings.chef_email}")
     if warnings:
-        print("Recommendations (optional / production):")
+        print("Recommended (optional) variables not set:")
         for key in warnings:
             print(f"  - {key}")
     return 0

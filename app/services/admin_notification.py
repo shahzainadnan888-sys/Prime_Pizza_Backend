@@ -88,7 +88,7 @@ class AdminNotificationService(BaseService):
         if payload.role_filter == "customer":
             role = UserRole.CUSTOMER
         elif payload.role_filter == "owner":
-            role = UserRole.OWNER
+            role = UserRole.CHEF
         user_ids = await self._users.list_ids_by_role(role)
         body_payload = self._payload_with_schedule(payload.payload, payload.scheduled_at)
         for user_id in user_ids:

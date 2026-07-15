@@ -6,7 +6,7 @@ from functools import lru_cache
 from typing import Literal
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
-from pydantic import AliasChoices, EmailStr, Field, field_validator, model_validator
+from pydantic import EmailStr, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -54,44 +54,24 @@ class Settings(BaseSettings):
         alias="TRUSTED_PROXY_IPS",
     )
 
-    # OTP / rate limiting
-    # OTP / rate limiting (local Redis OTP; remote providers plug in later)
-    otp_expire_seconds: int = Field(
-        default=300,
-        ge=60,
-        le=1800,
-        validation_alias=AliasChoices("OTP_EXPIRE_SECONDS", "OTP_EXPIRY_SECONDS"),
-    )
-    otp_max_attempts: int = Field(default=5, ge=1, le=20, alias="OTP_MAX_ATTEMPTS")
-    otp_send_limit: int = Field(default=3, ge=1, alias="OTP_SEND_LIMIT")
-    otp_send_window_seconds: int = Field(
+    # Auth rate limiting (Redis — login / register)
+    auth_login_limit: int = Field(default=10, ge=1, alias="AUTH_LOGIN_LIMIT")
+    auth_login_window_seconds: int = Field(
         default=600,
         ge=60,
-        alias="OTP_SEND_WINDOW_SECONDS",
+        alias="AUTH_LOGIN_WINDOW_SECONDS",
     )
-    otp_verify_limit: int = Field(default=10, ge=1, alias="OTP_VERIFY_LIMIT")
-    otp_verify_window_seconds: int = Field(
+    auth_register_limit: int = Field(default=5, ge=1, alias="AUTH_REGISTER_LIMIT")
+    auth_register_window_seconds: int = Field(
         default=600,
         ge=60,
-        alias="OTP_VERIFY_WINDOW_SECONDS",
+        alias="AUTH_REGISTER_WINDOW_SECONDS",
     )
-    otp_ip_send_limit: int = Field(default=10, ge=1, alias="OTP_IP_SEND_LIMIT")
-    otp_ip_send_window_seconds: int = Field(
+    auth_ip_limit: int = Field(default=30, ge=1, alias="AUTH_IP_LIMIT")
+    auth_ip_window_seconds: int = Field(
         default=600,
         ge=60,
-        alias="OTP_IP_SEND_WINDOW_SECONDS",
-    )
-    otp_ip_verify_limit: int = Field(default=30, ge=1, alias="OTP_IP_VERIFY_LIMIT")
-    otp_ip_verify_window_seconds: int = Field(
-        default=600,
-        ge=60,
-        alias="OTP_IP_VERIFY_WINDOW_SECONDS",
-    )
-    otp_global_send_limit: int = Field(default=200, ge=1, alias="OTP_GLOBAL_SEND_LIMIT")
-    otp_global_send_window_seconds: int = Field(
-        default=3600,
-        ge=60,
-        alias="OTP_GLOBAL_SEND_WINDOW_SECONDS",
+        alias="AUTH_IP_WINDOW_SECONDS",
     )
 
     # HTTP rate limiting (Redis)
@@ -271,11 +251,12 @@ class Settings(BaseSettings):
     cloudinary_api_key: str = Field(..., alias="CLOUDINARY_API_KEY")
     cloudinary_api_secret: str = Field(..., alias="CLOUDINARY_API_SECRET")
 
-    # Resend
-    resend_api_key: str = Field(default="", alias="RESEND_API_KEY")
-    resend_from_email: EmailStr | str = Field(
+    # Brevo transactional email
+    brevo_api_key: str = Field(default="", alias="BREVO_API_KEY")
+    brevo_sender_name: str = Field(default="Prime Pizza", alias="BREVO_SENDER_NAME")
+    brevo_sender_email: EmailStr | str = Field(
         default="noreply@primepizza.com",
-        alias="RESEND_FROM_EMAIL",
+        alias="BREVO_SENDER_EMAIL",
     )
     # Optional brand assets (placeholders work when empty)
     email_logo_url: str = Field(default="", alias="EMAIL_LOGO_URL")
@@ -288,12 +269,29 @@ class Settings(BaseSettings):
         alias="EMAIL_RETRY_BACKOFF_SECONDS",
     )
     email_enabled: bool = Field(default=True, alias="EMAIL_ENABLED")
-    # Comma-separated additional owners for future multi-recipient support
+    # Comma-separated additional admin recipients
     owner_notification_emails: str = Field(default="", alias="OWNER_NOTIFICATION_EMAILS")
 
-    # Owner contacts
-    owner_phone_number: str = Field(..., alias="OWNER_PHONE_NUMBER")
-    owner_email: EmailStr = Field(..., alias="OWNER_EMAIL")
+    # Kitchen chef bootstrap credentials (created on startup if missing)
+    chef_email: EmailStr = Field(default="Chef123@gmail.com", alias="CHEF_EMAIL")
+    chef_password: str = Field(default="Chef123", min_length=6, alias="CHEF_PASSWORD")
+
+    # Admin notification recipient (order alerts)
+    admin_email: EmailStr = Field(
+        default="ShahzainAdnan555@gmail.com",
+        alias="ADMIN_EMAIL",
+    )
+    # Contact form destination (required business inbox)
+    contact_receiver_email: EmailStr = Field(
+        default="ShahzainAdnan555@gmail.com",
+        alias="CONTACT_RECEIVER_EMAIL",
+    )
+    # Legacy alias — kept for OpenAPI contact / older deployments
+    owner_email: EmailStr = Field(
+        default="ShahzainAdnan555@gmail.com",
+        alias="OWNER_EMAIL",
+    )
+    owner_phone_number: str = Field(default="", alias="OWNER_PHONE_NUMBER")
 
     # Server
     host: str = Field(default="0.0.0.0", alias="HOST")
@@ -303,14 +301,32 @@ class Settings(BaseSettings):
         alias="ALLOWED_HOSTS",
     )
 
-    def owner_email_recipients(self) -> list[str]:
-        """
-        Recipients for new-order owner notifications.
+    def contact_notification_recipients(self) -> list[str]:
+        """Inbox(es) that receive contact-form submissions."""
+        primary = str(self.contact_receiver_email).strip().lower()
+        recipients: list[str] = [primary] if primary else []
+        for email in self.admin_email_recipients():
+            if email not in recipients:
+                recipients.append(email)
+        return recipients
 
-        Always includes OWNER_EMAIL. Additional addresses may be supplied via
-        OWNER_NOTIFICATION_EMAILS (comma-separated) without code changes.
+    def admin_email_recipients(self) -> list[str]:
         """
-        recipients: list[str] = [str(self.owner_email).strip().lower()]
+        Recipients for operational/admin alerts (test email, optional copies).
+
+        Prefer ADMIN_EMAIL, then CONTACT_RECEIVER_EMAIL, then OWNER_EMAIL.
+        Optional OWNER_NOTIFICATION_EMAILS are appended.
+        """
+        candidates = [
+            str(self.admin_email).strip().lower(),
+            str(self.contact_receiver_email).strip().lower(),
+            str(self.owner_email).strip().lower(),
+        ]
+        recipients: list[str] = []
+        for email in candidates:
+            if email and email not in recipients:
+                recipients.append(email)
+                break
         extras = [
             part.strip().lower()
             for part in self.owner_notification_emails.split(",")
@@ -321,9 +337,38 @@ class Settings(BaseSettings):
                 recipients.append(email)
         return recipients
 
+    def chef_notification_recipients(self) -> list[str]:
+        """Kitchen inbox for new-order alerts (CHEF_EMAIL)."""
+        email = str(self.chef_email).strip().lower()
+        return [email] if email else []
+
+    def owner_email_recipients(self) -> list[str]:
+        """Backward-compatible alias for admin_email_recipients()."""
+        return self.admin_email_recipients()
+
     @property
     def is_email_configured(self) -> bool:
-        return bool(self.resend_api_key.strip()) and self.email_enabled
+        return (
+            self.email_enabled
+            and bool(self.brevo_api_key.strip())
+            and bool(str(self.brevo_sender_email).strip())
+            and bool(str(self.brevo_sender_name).strip())
+        )
+
+    def validate_brevo_required(self) -> None:
+        """Fail fast at startup when email is enabled (skipped in test env)."""
+        if self.app_env == "test" or not self.email_enabled:
+            return
+        missing: list[str] = []
+        if not self.brevo_api_key.strip():
+            missing.append("BREVO_API_KEY")
+        if not str(self.brevo_sender_email).strip():
+            missing.append("BREVO_SENDER_EMAIL")
+        if not str(self.brevo_sender_name).strip():
+            missing.append("BREVO_SENDER_NAME")
+        if missing:
+            msg = f"Missing required Brevo configuration: {', '.join(missing)}"
+            raise ValueError(msg)
 
     @field_validator("api_v1_prefix")
     @classmethod
@@ -336,9 +381,22 @@ class Settings(BaseSettings):
     @field_validator("owner_phone_number")
     @classmethod
     def normalize_owner_phone(cls, value: str) -> str:
+        if not value or not str(value).strip():
+            return ""
         from app.utils.phone import normalize_phone
 
         return normalize_phone(value)
+
+    @field_validator(
+        "chef_email",
+        "owner_email",
+        "admin_email",
+        "contact_receiver_email",
+        "brevo_sender_email",
+    )
+    @classmethod
+    def normalize_staff_email(cls, value: EmailStr | str) -> str:
+        return str(value).strip().lower()
 
     @field_validator("database_url")
     @classmethod
@@ -438,7 +496,19 @@ class Settings(BaseSettings):
 
     @property
     def cors_origins(self) -> list[str]:
-        return [self.frontend_url]
+        origins = [self.frontend_url.rstrip("/")]
+        if self.is_development:
+            for origin in (
+                "http://localhost:3000",
+                "http://127.0.0.1:3000",
+                "http://localhost:5173",
+                "http://127.0.0.1:5173",
+                "http://localhost:4173",
+                "http://127.0.0.1:4173",
+            ):
+                if origin not in origins:
+                    origins.append(origin)
+        return origins
 
     @property
     def sync_database_url(self) -> str:

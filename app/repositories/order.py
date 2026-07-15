@@ -9,6 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.common.enums import OrderStatus
 from app.models.order import Order, OrderItem, OrderNumberSequence, OrderTimelineEvent
 from app.repositories.base import BaseRepository
 from app.schemas.orders import OrderFilterParams
@@ -23,6 +24,7 @@ class OrderRepository(BaseRepository[Order]):
             selectinload(Order.items).selectinload(OrderItem.extras),
             selectinload(Order.timeline),
             selectinload(Order.coupon),
+            selectinload(Order.user),
         )
 
     async def get_detail(self, order_id: UUID) -> Order | None:
@@ -91,6 +93,31 @@ class OrderRepository(BaseRepository[Order]):
             base.options(selectinload(Order.items)).limit(limit).offset(offset)
         )
         return list(result.scalars().unique().all()), total
+
+    async def list_by_statuses(
+        self,
+        statuses: list[OrderStatus],
+        *,
+        limit: int = 100,
+    ) -> list[Order]:
+        """Kitchen board query — newest first, with customer + line items."""
+        if not statuses:
+            return []
+        stmt = (
+            select(Order)
+            .where(
+                Order.deleted_at.is_(None),
+                Order.status.in_(statuses),
+            )
+            .options(
+                selectinload(Order.items),
+                selectinload(Order.user),
+            )
+            .order_by(Order.created_at.desc())
+            .limit(limit)
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().unique().all())
 
 
 class OrderTimelineRepository(BaseRepository[OrderTimelineEvent]):

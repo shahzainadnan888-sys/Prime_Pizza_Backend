@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Contact form: {{subject}}</title>
+</head>
+<body style="margin:0;padding:0;background:#f6f3ee;font-family:Arial,Helvetica,sans-serif;color:#1f1a17;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="padding:28px 12px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" style="max-width:560px;background:#fff;border:1px solid #eadfce;border-radius:10px;">
+          <tr>
+            <td style="background:#2c3e50;padding:22px 28px;color:#fff;">
+              <div style="font-size:12px;letter-spacing:1.5px;text-transform:uppercase;opacity:.85;">{{brand_name}}</div>
+              <h1 style="margin:6px 0 0;font-size:22px;">New contact message</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:28px;font-size:14px;line-height:1.7;">
+              <p style="margin:0 0 16px;"><strong>Subject:</strong> {{subject}}</p>
+              <table role="presentation" width="100%" style="margin-bottom:20px;">
+                <tr><td style="width:140px;color:#8a7d72;">Name</td><td>{{name}}</td></tr>
+                <tr><td style="color:#8a7d72;">Email</td><td>{{email}}</td></tr>
+                <tr><td style="color:#8a7d72;">Phone</td><td>{{phone}}</td></tr>
+                <tr><td style="color:#8a7d72;">Submitted at</td><td>{{submission_time}}</td></tr>
+                <tr><td style="color:#8a7d72;">IP</td><td>{{client_ip}}</td></tr>
+              </table>
+              <div style="background:#faf7f2;border-radius:8px;padding:16px 18px;white-space:pre-wrap;">{{message}}</div>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

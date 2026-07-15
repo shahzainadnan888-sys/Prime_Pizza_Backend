@@ -62,6 +62,18 @@ class Order(BaseModel):
         CheckConstraint("delivery_fee >= 0", name="ck_orders_delivery_fee_non_negative"),
         CheckConstraint("discount >= 0", name="ck_orders_discount_non_negative"),
         CheckConstraint("grand_total >= 0", name="ck_orders_grand_total_non_negative"),
+        CheckConstraint(
+            "latitude IS NULL OR (latitude >= -90 AND latitude <= 90)",
+            name="ck_orders_latitude_range",
+        ),
+        CheckConstraint(
+            "longitude IS NULL OR (longitude >= -180 AND longitude <= 180)",
+            name="ck_orders_longitude_range",
+        ),
+        CheckConstraint(
+            "gps_accuracy IS NULL OR gps_accuracy >= 0",
+            name="ck_orders_gps_accuracy_non_negative",
+        ),
     )
 
     order_number: Mapped[str] = mapped_column(String(40), nullable=False)
@@ -76,6 +88,10 @@ class Order(BaseModel):
         nullable=True,
     )
     delivery_address_snapshot: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    # Live GPS from the customer device at checkout (optional; distinct from saved address coords).
+    latitude: Mapped[Decimal | None] = mapped_column(Numeric(10, 7), nullable=True)
+    longitude: Mapped[Decimal | None] = mapped_column(Numeric(10, 7), nullable=True)
+    gps_accuracy: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
     status: Mapped[OrderStatus] = mapped_column(
         pg_enum(OrderStatus, name="order_status"),
         nullable=False,

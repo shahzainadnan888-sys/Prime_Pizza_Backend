@@ -28,12 +28,14 @@ def test_jwt_token_pair_roundtrip() -> None:
     user_id = uuid4()
     access, refresh, access_jti, refresh_jti = jwt_service.create_token_pair(
         user_id=user_id,
+        email="customer@example.com",
         phone_number="+923001234567",
         role="customer",
     )
     access_payload = jwt_service.decode_token(access, expected_type="access")
     refresh_payload = jwt_service.decode_token(refresh, expected_type="refresh")
     assert access_payload["user_id"] == str(user_id)
+    assert access_payload["email"] == "customer@example.com"
     assert access_payload["phone_number"] == "+923001234567"
     assert access_payload["role"] == "customer"
     assert access_payload["token_type"] == "access"
@@ -47,6 +49,7 @@ def test_jwt_rejects_wrong_type() -> None:
     jwt_service = JWTService(settings)
     access, _, _, _ = jwt_service.create_token_pair(
         user_id=uuid4(),
+        email="customer@example.com",
         phone_number="+923001234567",
         role="customer",
     )

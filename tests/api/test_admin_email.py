@@ -16,8 +16,12 @@ from fastapi.testclient import TestClient
 def _user(*, role: UserRole) -> User:
     return User(
         id=uuid4(),
+        first_name="Test",
+        last_name="User",
         phone_number="+923001234567",
         full_name="Tester",
+        email="test@example.com",
+        password_hash="hashed",
         role=role,
         is_active=True,
         is_verified=True,
@@ -52,7 +56,7 @@ def test_customer_cannot_send_test_email() -> None:
 
 def test_owner_test_email_endpoint(monkeypatch) -> None:
     app = create_app(settings=get_settings())
-    _override_auth(app, _user(role=UserRole.OWNER))
+    _override_auth(app, _user(role=UserRole.CHEF))
 
     from app.dependencies.email import get_email_service
     from app.services.email import EmailService
@@ -84,3 +88,4 @@ def test_owner_test_email_endpoint(monkeypatch) -> None:
         assert body["success"] is True
         assert body["data"]["status"] == "sent"
         assert body["data"]["email_log_id"] is not None
+

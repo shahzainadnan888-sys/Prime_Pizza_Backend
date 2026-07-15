@@ -15,7 +15,7 @@ class OwnershipService:
     """
     Validate that a customer may only access their own resources.
 
-    Owner role bypasses ownership checks (vertical privilege by design).
+    Chef role bypasses ownership checks for kitchen/ops surfaces.
     """
 
     def ensure_owner_or_self(
@@ -27,14 +27,14 @@ class OwnershipService:
         hide_existence: bool = True,
     ) -> None:
         """
-        Allow access when actor is platform owner OR owns the resource.
+        Allow access when actor is chef OR owns the resource.
 
         When `hide_existence` is True, customers get 404 (not 403) for foreign
         resources to avoid leaking existence of other users' data.
         """
-        if RoleService.is_owner(actor.role):
+        if RoleService.is_chef(actor.role):
             logger.info(
-                "Owner access granted | user_id={} | resource={}",
+                "Chef access granted | user_id={} | resource={}",
                 actor.id,
                 resource_name,
             )
@@ -55,4 +55,4 @@ class OwnershipService:
         return actor.id == resource_owner_id
 
     def owner_bypasses(self, actor: User) -> bool:
-        return RoleService.is_owner(actor.role)
+        return RoleService.is_chef(actor.role)

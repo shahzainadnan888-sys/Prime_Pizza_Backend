@@ -19,13 +19,12 @@ jobs:
       CLOUDINARY_CLOUD_NAME: "ci"
       CLOUDINARY_API_KEY: "ci"
       CLOUDINARY_API_SECRET: "ci"
-      OWNER_PHONE_NUMBER: "+923348957141"
-      OWNER_EMAIL: "owner@example.com"
+      CHEF_EMAIL: "Chef123@gmail.com"
+      CHEF_PASSWORD: "Chef123"
+      OWNER_EMAIL: "Chef123@gmail.com"
       FRONTEND_URL: "http://localhost:3000"
       RATE_LIMIT_ENABLED: "false"
       EMAIL_ENABLED: "false"
-      OTP_EXPIRE_SECONDS: "300"
-      OTP_MAX_ATTEMPTS: "5"
 
     steps:
       - uses: actions/checkout@v4

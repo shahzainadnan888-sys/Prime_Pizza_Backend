@@ -16,11 +16,15 @@ from app.core.exceptions import ForbiddenException, NotFoundException
 from app.models.user import User
 
 
-def _user(*, role: UserRole, phone: str = "+923001111111") -> User:
+def _user(*, role: UserRole, email: str = "user@example.com") -> User:
     return User(
         id=uuid4(),
-        phone_number=phone,
+        first_name="Test",
+        last_name="User",
+        phone_number=None,
         full_name="Test User",
+        email=email,
+        password_hash="hashed",
         role=role,
         is_active=True,
         is_verified=True,
@@ -30,11 +34,11 @@ def _user(*, role: UserRole, phone: str = "+923001111111") -> User:
     )
 
 
-def test_owner_phone_resolves_to_owner_role() -> None:
+def test_chef_email_resolves_to_chef_role() -> None:
     settings = get_settings()
     service = RoleAssignmentService(settings)
-    assert service.resolve_role(settings.owner_phone_number) == UserRole.OWNER
-    assert service.resolve_role("+923009999999") == UserRole.CUSTOMER
+    assert service.resolve_role(settings.chef_email) == UserRole.CHEF
+    assert service.resolve_role("customer@example.com") == UserRole.CUSTOMER
 
 
 def test_customer_permissions_do_not_include_admin() -> None:
@@ -43,27 +47,36 @@ def test_customer_permissions_do_not_include_admin() -> None:
     assert Permission.CART_MANAGE_OWN in perms
     assert Permission.PRODUCT_CREATE not in perms
     assert Permission.DASHBOARD_READ not in perms
+    assert Permission.KITCHEN_MANAGE not in perms
     assert Permission.ALL not in perms
 
 
-def test_owner_has_wildcard_and_admin_permissions() -> None:
-    assert has_permission(UserRole.OWNER, Permission.PRODUCT_DELETE)
-    assert has_permission(UserRole.OWNER, Permission.DASHBOARD_READ)
-    assert has_permission(UserRole.OWNER, Permission.ALL)
-    assert has_permission(UserRole.OWNER, "analytics.read")
+def test_chef_has_wildcard_and_kitchen_permissions() -> None:
+    assert has_permission(UserRole.CHEF, Permission.PRODUCT_DELETE)
+    assert has_permission(UserRole.CHEF, Permission.DASHBOARD_READ)
+    assert has_permission(UserRole.CHEF, Permission.KITCHEN_MANAGE)
+    assert has_permission(UserRole.CHEF, Permission.ALL)
+    assert has_permission(UserRole.CHEF, "analytics.read")
 
 
-def test_require_owner_blocks_customer() -> None:
+def test_require_chef_blocks_customer() -> None:
     authz = AuthorizationService()
     customer = _user(role=UserRole.CUSTOMER)
     with pytest.raises(ForbiddenException):
-        authz.require_owner(customer)
+        authz.require_chef(customer)
 
 
-def test_require_owner_allows_owner() -> None:
+def test_require_chef_allows_chef() -> None:
     authz = AuthorizationService()
-    owner = _user(role=UserRole.OWNER)
-    assert authz.require_owner(owner) is owner
+    chef = _user(role=UserRole.CHEF)
+    assert authz.require_chef(chef) is chef
+
+
+def test_require_customer_blocks_chef() -> None:
+    authz = AuthorizationService()
+    chef = _user(role=UserRole.CHEF)
+    with pytest.raises(ForbiddenException):
+        authz.require_customer(chef)
 
 
 def test_require_permission_blocks_customer_admin_action() -> None:
@@ -87,20 +100,22 @@ def test_ownership_hides_foreign_resource_from_customer() -> None:
         ownership.ensure_owner_or_self(customer, uuid4(), resource_name="order")
 
 
-def test_ownership_owner_bypasses() -> None:
+def test_ownership_chef_bypasses() -> None:
     ownership = OwnershipService()
-    owner = _user(role=UserRole.OWNER)
-    ownership.ensure_owner_or_self(owner, uuid4(), resource_name="order")
+    chef = _user(role=UserRole.CHEF)
+    ownership.ensure_owner_or_self(chef, uuid4(), resource_name="order")
 
 
 def test_role_service_predicates() -> None:
-    assert RoleService.is_owner(UserRole.OWNER)
+    assert RoleService.is_chef(UserRole.CHEF)
+    assert RoleService.is_owner(UserRole.CHEF)  # alias
     assert RoleService.is_customer("customer")
-    assert not RoleService.is_owner(UserRole.CUSTOMER)
+    assert not RoleService.is_chef(UserRole.CUSTOMER)
 
 
-def test_privilege_escalation_customer_cannot_gain_owner_permission() -> None:
-    """Customers must not satisfy owner-only permission checks."""
+def test_privilege_escalation_customer_cannot_gain_chef_permission() -> None:
+    """Customers must not satisfy chef-only permission checks."""
     assert not has_permission(UserRole.CUSTOMER, Permission.SETTINGS_UPDATE)
     assert not has_permission(UserRole.CUSTOMER, Permission.CUSTOMER_READ)
     assert not has_permission(UserRole.CUSTOMER, Permission.AUDIT_LOG_READ)
+    assert not has_permission(UserRole.CUSTOMER, Permission.KITCHEN_MANAGE)

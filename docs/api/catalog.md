@@ -1,146 +1,814 @@
 # Catalog
 
-Back to [`api.md`](../../api.md) · [`index`](README.md)
+## List Categories
 
-## `GET /api/v1/categories`
+### Endpoint
 
-**Summary:** List Categories
+`GET /api/v1/categories`
 
-**Auth:** Public
+### Description
 
-**Success responses:** `200`
+List Categories
 
----
+### Authentication Required
 
-## `GET /api/v1/categories/{slug}`
+No
 
-**Summary:** Get Category
+### Required Role
 
-**Auth:** Public
+—
 
-**Path params**
+### Headers
 
-- `slug` (string, required)
+| Header | Required |
+|--------|----------|
+| — | — |
 
-**Success responses:** `200`
+### Path Parameters
 
----
+_None._
 
-## `GET /api/v1/products`
+### Query Parameters
 
-**Summary:** List Products
+_None._
 
-**Auth:** Public
+### Request Body Schema
 
-**Query params**
+_No request body._
 
-- `category` (object, default=``)
-- `category_id` (object, default=``)
-- `min_price` (object, default=``)
-- `max_price` (object, default=``)
-- `is_available` (object, default=``)
-- `is_featured` (object, default=``)
-- `is_popular` (object, default=``)
-- `is_best_seller` (object, default=``)
-- `vegetarian` (object, default=``)
-- `tag` (object, default=``)
-- `min_calories` (object, default=``)
-- `max_calories` (object, default=``)
-- `max_preparation_time` (object, default=``)
-- `sort` (ProductSort, default=`newest`)
-- `q` (object, default=``)
-- `page` (integer, default=`1`)
-- `page_size` (integer, default=`20`)
+### Validation Rules
 
-**Success responses:** `200`
+_See field constraints in the request schema table (and query/path params)._
 
----
+### Response Schema
 
-## `GET /api/v1/products/search`
+Success status: **200**
 
-**Summary:** Search Products
+Envelope: `success`, `message`, `data`, `request_id` (and `meta` when paginated).
 
-**Auth:** Public
+**`data` schema**
 
-**Query params**
+_No fields (or opaque object)._
 
-- `q` (string, default=``)
-- `page` (integer, default=`1`)
-- `page_size` (integer, default=`20`)
+### Success Responses
 
-**Success responses:** `200`
+- `200` — success (see Example Response / Response Schema)
+
+### Error Responses
+
+| Code | Description |
+|------|-------------|
+| `200` | Successful Response |
+
+Also see [Global error responses](#global-error-responses). Common for this route:
+
+- `401` — missing/invalid Bearer token (protected routes)
+- `403` — authenticated but wrong role/permission
+- `422` — validation failure (body/query/path)
+- `429` — rate limited
 
 ---
 
-## `GET /api/v1/products/featured`
+## Get Category
 
-**Summary:** Featured Products
+### Endpoint
 
-**Auth:** Public
+`GET /api/v1/categories/{slug}`
 
-**Success responses:** `200`
+### Description
+
+Get Category
+
+### Authentication Required
+
+No
+
+### Required Role
+
+—
+
+### Headers
+
+| Header | Required |
+|--------|----------|
+| — | — |
+
+### Path Parameters
+
+| Name | Required | Type | Description |
+|------|----------|------|-------------|
+| `slug` | yes | string | — |
+
+### Query Parameters
+
+_None._
+
+### Request Body Schema
+
+_No request body._
+
+### Validation Rules
+
+_See field constraints in the request schema table (and query/path params)._
+
+### Response Schema
+
+Success status: **200**
+
+Envelope: `success`, `message`, `data`, `request_id` (and `meta` when paginated).
+
+**`data` schema**
+
+_No fields (or opaque object)._
+
+### Success Responses
+
+- `200` — success (see Example Response / Response Schema)
+
+### Error Responses
+
+| Code | Description |
+|------|-------------|
+| `200` | Successful Response |
+| `422` | Validation Error |
+
+Also see [Global error responses](#global-error-responses). Common for this route:
+
+- `401` — missing/invalid Bearer token (protected routes)
+- `403` — authenticated but wrong role/permission
+- `422` — validation failure (body/query/path)
+- `429` — rate limited
 
 ---
 
-## `GET /api/v1/products/popular`
+## List Deals
 
-**Summary:** Popular Products
+### Endpoint
 
-**Auth:** Public
+`GET /api/v1/deals`
 
-**Success responses:** `200`
+### Description
+
+List Deals
+
+### Authentication Required
+
+No
+
+### Required Role
+
+—
+
+### Headers
+
+| Header | Required |
+|--------|----------|
+| — | — |
+
+### Path Parameters
+
+_None._
+
+### Query Parameters
+
+_None._
+
+### Request Body Schema
+
+_No request body._
+
+### Validation Rules
+
+_See field constraints in the request schema table (and query/path params)._
+
+### Response Schema
+
+Success status: **200**
+
+Envelope: `success`, `message`, `data`, `request_id` (and `meta` when paginated).
+
+**`data` schema**
+
+_No fields (or opaque object)._
+
+### Success Responses
+
+- `200` — success (see Example Response / Response Schema)
+
+### Error Responses
+
+| Code | Description |
+|------|-------------|
+| `200` | Successful Response |
+
+Also see [Global error responses](#global-error-responses). Common for this route:
+
+- `401` — missing/invalid Bearer token (protected routes)
+- `403` — authenticated but wrong role/permission
+- `422` — validation failure (body/query/path)
+- `429` — rate limited
 
 ---
 
-## `GET /api/v1/products/recommended`
+## Get Deal
 
-**Summary:** Recommended Products
+### Endpoint
 
-**Auth:** Public
+`GET /api/v1/deals/{slug}`
 
-**Query params**
+### Description
 
-- `product_slug` (object, default=``)
-- `category` (object, default=``)
+Get Deal
 
-**Success responses:** `200`
+### Authentication Required
+
+No
+
+### Required Role
+
+—
+
+### Headers
+
+| Header | Required |
+|--------|----------|
+| — | — |
+
+### Path Parameters
+
+| Name | Required | Type | Description |
+|------|----------|------|-------------|
+| `slug` | yes | string | — |
+
+### Query Parameters
+
+_None._
+
+### Request Body Schema
+
+_No request body._
+
+### Validation Rules
+
+_See field constraints in the request schema table (and query/path params)._
+
+### Response Schema
+
+Success status: **200**
+
+Envelope: `success`, `message`, `data`, `request_id` (and `meta` when paginated).
+
+**`data` schema**
+
+_No fields (or opaque object)._
+
+### Success Responses
+
+- `200` — success (see Example Response / Response Schema)
+
+### Error Responses
+
+| Code | Description |
+|------|-------------|
+| `200` | Successful Response |
+| `422` | Validation Error |
+
+Also see [Global error responses](#global-error-responses). Common for this route:
+
+- `401` — missing/invalid Bearer token (protected routes)
+- `403` — authenticated but wrong role/permission
+- `422` — validation failure (body/query/path)
+- `429` — rate limited
 
 ---
 
-## `GET /api/v1/products/{slug}`
+## List Products
 
-**Summary:** Get Product
+### Endpoint
 
-**Auth:** Public
+`GET /api/v1/products`
 
-**Path params**
+### Description
 
-- `slug` (string, required)
+List Products
 
-**Success responses:** `200`
+### Authentication Required
+
+No
+
+### Required Role
+
+—
+
+### Headers
+
+| Header | Required |
+|--------|----------|
+| — | — |
+
+### Path Parameters
+
+_None._
+
+### Query Parameters
+
+| Name | Required | Type | Description |
+|------|----------|------|-------------|
+| `category` | no | string | null | — |
+| `category_id` | no | string (uuid) | null | — |
+| `min_price` | no | number | string | null | — |
+| `max_price` | no | number | string | null | — |
+| `is_available` | no | boolean | null | — |
+| `is_featured` | no | boolean | null | — |
+| `is_popular` | no | boolean | null | — |
+| `is_best_seller` | no | boolean | null | — |
+| `vegetarian` | no | boolean | null | — |
+| `tag` | no | enum: `popular` | `featured` | `new` | `limited` | `spicy` | `vegetarian` | `best_seller` | `chef_special` | `kids_favorite` | null | — |
+| `min_calories` | no | integer | null | — |
+| `max_calories` | no | integer | null | — |
+| `max_preparation_time` | no | integer | null | — |
+| `sort` | no | enum: `newest` | `oldest` | `price_asc` | `price_desc` | `popularity` | `alphabetical` | `preparation_time` | — |
+| `q` | no | string | null | — |
+| `page` | no | integer | Page number |
+| `page_size` | no | integer | Items per page |
+
+### Request Body Schema
+
+_No request body._
+
+### Validation Rules
+
+- `page`: min=1
+- `page_size`: min=1, max=100
+
+### Response Schema
+
+Success status: **200**
+
+Envelope: `success`, `message`, `data`, `request_id` (and `meta` when paginated).
+
+**`data` schema**
+
+_No fields (or opaque object)._
+
+### Example Response
+
+```json
+{
+  "success": true,
+  "message": "Success",
+  "data": [
+    {
+      "is_available": true,
+      "sort_order": 1,
+      "stock_status": "in_stock",
+      "name": "string",
+      "created_at": "2026-07-15T12:00:00Z",
+      "id": "00000000-0000-4000-8000-000000000001",
+      "is_best_seller": true,
+      "base_price": "string",
+      "slug": "string",
+      "is_popular": true,
+      "category_id": "00000000-0000-4000-8000-000000000001",
+      "is_featured": true,
+      "short_description": null,
+      "discount_price": null,
+      "image_url": null,
+      "preparation_time_minutes": null,
+      "calories": null,
+      "tags": [
+        "string"
+      ]
+    }
+  ],
+  "request_id": "00000000-0000-4000-8000-000000000099",
+  "meta": {
+    "page": 1,
+    "page_size": 20,
+    "total_items": 1,
+    "total_pages": 1,
+    "has_next": false,
+    "has_previous": false
+  }
+}
+```
+
+### Success Responses
+
+- `200` — success (see Example Response / Response Schema)
+
+### Error Responses
+
+| Code | Description |
+|------|-------------|
+| `200` | Successful Response |
+| `422` | Validation Error |
+
+Also see [Global error responses](#global-error-responses). Common for this route:
+
+- `401` — missing/invalid Bearer token (protected routes)
+- `403` — authenticated but wrong role/permission
+- `422` — validation failure (body/query/path)
+- `429` — rate limited
 
 ---
 
-## `GET /api/v1/deals`
+## Featured Products
 
-**Summary:** List Deals
+### Endpoint
 
-**Auth:** Public
+`GET /api/v1/products/featured`
 
-**Success responses:** `200`
+### Description
+
+Featured Products
+
+### Authentication Required
+
+No
+
+### Required Role
+
+—
+
+### Headers
+
+| Header | Required |
+|--------|----------|
+| — | — |
+
+### Path Parameters
+
+_None._
+
+### Query Parameters
+
+_None._
+
+### Request Body Schema
+
+_No request body._
+
+### Validation Rules
+
+_See field constraints in the request schema table (and query/path params)._
+
+### Response Schema
+
+Success status: **200**
+
+Envelope: `success`, `message`, `data`, `request_id` (and `meta` when paginated).
+
+**`data` schema**
+
+_No fields (or opaque object)._
+
+### Success Responses
+
+- `200` — success (see Example Response / Response Schema)
+
+### Error Responses
+
+| Code | Description |
+|------|-------------|
+| `200` | Successful Response |
+
+Also see [Global error responses](#global-error-responses). Common for this route:
+
+- `401` — missing/invalid Bearer token (protected routes)
+- `403` — authenticated but wrong role/permission
+- `422` — validation failure (body/query/path)
+- `429` — rate limited
 
 ---
 
-## `GET /api/v1/deals/{slug}`
+## Popular Products
 
-**Summary:** Get Deal
+### Endpoint
 
-**Auth:** Public
+`GET /api/v1/products/popular`
 
-**Path params**
+### Description
 
-- `slug` (string, required)
+Popular Products
 
-**Success responses:** `200`
+### Authentication Required
+
+No
+
+### Required Role
+
+—
+
+### Headers
+
+| Header | Required |
+|--------|----------|
+| — | — |
+
+### Path Parameters
+
+_None._
+
+### Query Parameters
+
+_None._
+
+### Request Body Schema
+
+_No request body._
+
+### Validation Rules
+
+_See field constraints in the request schema table (and query/path params)._
+
+### Response Schema
+
+Success status: **200**
+
+Envelope: `success`, `message`, `data`, `request_id` (and `meta` when paginated).
+
+**`data` schema**
+
+_No fields (or opaque object)._
+
+### Success Responses
+
+- `200` — success (see Example Response / Response Schema)
+
+### Error Responses
+
+| Code | Description |
+|------|-------------|
+| `200` | Successful Response |
+
+Also see [Global error responses](#global-error-responses). Common for this route:
+
+- `401` — missing/invalid Bearer token (protected routes)
+- `403` — authenticated but wrong role/permission
+- `422` — validation failure (body/query/path)
+- `429` — rate limited
+
+---
+
+## Recommended Products
+
+### Endpoint
+
+`GET /api/v1/products/recommended`
+
+### Description
+
+Recommended Products
+
+### Authentication Required
+
+No
+
+### Required Role
+
+—
+
+### Headers
+
+| Header | Required |
+|--------|----------|
+| — | — |
+
+### Path Parameters
+
+_None._
+
+### Query Parameters
+
+| Name | Required | Type | Description |
+|------|----------|------|-------------|
+| `product_slug` | no | string | null | — |
+| `category` | no | string | null | — |
+
+### Request Body Schema
+
+_No request body._
+
+### Validation Rules
+
+_See field constraints in the request schema table (and query/path params)._
+
+### Response Schema
+
+Success status: **200**
+
+Envelope: `success`, `message`, `data`, `request_id` (and `meta` when paginated).
+
+**`data` schema**
+
+_No fields (or opaque object)._
+
+### Success Responses
+
+- `200` — success (see Example Response / Response Schema)
+
+### Error Responses
+
+| Code | Description |
+|------|-------------|
+| `200` | Successful Response |
+| `422` | Validation Error |
+
+Also see [Global error responses](#global-error-responses). Common for this route:
+
+- `401` — missing/invalid Bearer token (protected routes)
+- `403` — authenticated but wrong role/permission
+- `422` — validation failure (body/query/path)
+- `429` — rate limited
+
+---
+
+## Search Products
+
+### Endpoint
+
+`GET /api/v1/products/search`
+
+### Description
+
+Search Products
+
+### Authentication Required
+
+No
+
+### Required Role
+
+—
+
+### Headers
+
+| Header | Required |
+|--------|----------|
+| — | — |
+
+### Path Parameters
+
+_None._
+
+### Query Parameters
+
+| Name | Required | Type | Description |
+|------|----------|------|-------------|
+| `q` | yes | string | — |
+| `page` | no | integer | Page number |
+| `page_size` | no | integer | Items per page |
+
+### Request Body Schema
+
+_No request body._
+
+### Validation Rules
+
+- `page`: min=1
+- `page_size`: min=1, max=100
+
+### Response Schema
+
+Success status: **200**
+
+Envelope: `success`, `message`, `data`, `request_id` (and `meta` when paginated).
+
+**`data` schema**
+
+_No fields (or opaque object)._
+
+### Example Response
+
+```json
+{
+  "success": true,
+  "message": "Success",
+  "data": [
+    {
+      "is_available": true,
+      "sort_order": 1,
+      "stock_status": "in_stock",
+      "name": "string",
+      "created_at": "2026-07-15T12:00:00Z",
+      "id": "00000000-0000-4000-8000-000000000001",
+      "is_best_seller": true,
+      "base_price": "string",
+      "slug": "string",
+      "is_popular": true,
+      "category_id": "00000000-0000-4000-8000-000000000001",
+      "is_featured": true,
+      "short_description": null,
+      "discount_price": null,
+      "image_url": null,
+      "preparation_time_minutes": null,
+      "calories": null,
+      "tags": [
+        "string"
+      ]
+    }
+  ],
+  "request_id": "00000000-0000-4000-8000-000000000099",
+  "meta": {
+    "page": 1,
+    "page_size": 20,
+    "total_items": 1,
+    "total_pages": 1,
+    "has_next": false,
+    "has_previous": false
+  }
+}
+```
+
+### Success Responses
+
+- `200` — success (see Example Response / Response Schema)
+
+### Error Responses
+
+| Code | Description |
+|------|-------------|
+| `200` | Successful Response |
+| `422` | Validation Error |
+
+Also see [Global error responses](#global-error-responses). Common for this route:
+
+- `401` — missing/invalid Bearer token (protected routes)
+- `403` — authenticated but wrong role/permission
+- `422` — validation failure (body/query/path)
+- `429` — rate limited
+
+---
+
+## Get Product
+
+### Endpoint
+
+`GET /api/v1/products/{slug}`
+
+### Description
+
+Get Product
+
+### Authentication Required
+
+No
+
+### Required Role
+
+—
+
+### Headers
+
+| Header | Required |
+|--------|----------|
+| — | — |
+
+### Path Parameters
+
+| Name | Required | Type | Description |
+|------|----------|------|-------------|
+| `slug` | yes | string | — |
+
+### Query Parameters
+
+_None._
+
+### Request Body Schema
+
+_No request body._
+
+### Validation Rules
+
+_See field constraints in the request schema table (and query/path params)._
+
+### Response Schema
+
+Success status: **200**
+
+Envelope: `success`, `message`, `data`, `request_id` (and `meta` when paginated).
+
+**`data` schema**
+
+_No fields (or opaque object)._
+
+### Success Responses
+
+- `200` — success (see Example Response / Response Schema)
+
+### Error Responses
+
+| Code | Description |
+|------|-------------|
+| `200` | Successful Response |
+| `422` | Validation Error |
+
+Also see [Global error responses](#global-error-responses). Common for this route:
+
+- `401` — missing/invalid Bearer token (protected routes)
+- `403` — authenticated but wrong role/permission
+- `422` — validation failure (body/query/path)
+- `429` — rate limited
 
 ---

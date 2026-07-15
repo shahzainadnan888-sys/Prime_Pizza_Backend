@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Request
 
 from app.authorization.permissions import Permission
 from app.common.enums import EmailDeliveryStatus
+from app.core.exceptions import ExternalServiceException
 from app.dependencies.authorization import require_permission
 from app.dependencies.email import get_email_service
 from app.models.user import User
@@ -28,27 +29,29 @@ async def send_test_email(
         to=str(payload.to) if payload.to else None,
         message=payload.message,
     )
-    detail = "Test email sent"
-    if log.status == EmailDeliveryStatus.SKIPPED:
-        detail = "Email skipped — configure RESEND_API_KEY and EMAIL_ENABLED"
-    elif log.status == EmailDeliveryStatus.FAILED:
-        detail = "Test email failed after retries"
-    elif log.status == EmailDeliveryStatus.SENT:
-        detail = "Test email sent successfully"
+    if log.status != EmailDeliveryStatus.SENT:
+        raise ExternalServiceException(
+            f"Test email did not send successfully (status={log.status.value})",
+            service="brevo",
+            details={
+                "status": log.status.value,
+                "failure_reason": log.failure_reason,
+                "email_log_id": str(log.id),
+            },
+        )
 
     recipients = (log.meta or {}).get("recipients") or [log.recipient]
     data = TestEmailResponse(
-        queued=log.status
-        in {EmailDeliveryStatus.QUEUED, EmailDeliveryStatus.SENDING, EmailDeliveryStatus.SENT},
+        queued=True,
         recipients=recipients,
         subject=log.subject,
         status=log.status,
         email_log_id=log.id,
-        detail=detail,
+        detail="Test email sent successfully",
     )
     return SuccessResponse(
         success=True,
-        message=detail,
+        message="Test email sent successfully",
         data=data,
         request_id=getattr(request.state, "request_id", None),
     )

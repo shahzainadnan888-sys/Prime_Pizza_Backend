@@ -144,10 +144,13 @@ class CartService(BaseService):
         )
 
     async def get_cart(self, user: User) -> CartResponse:
+        """
+        Return the active cart quickly from stored line totals.
+
+        Full catalog recalculation runs on mutations (add/update/remove/coupon)
+        and checkout — not on every GET — to avoid Neon N+1 latency timeouts.
+        """
         cart = await self.get_or_create_cart(user)
-        await self.recalculate(cart)
-        await self._session.commit()
-        cart = await self._require_cart(user.id)
         return self._to_response(cart)
 
     async def get_summary(self, user: User) -> OrderSummaryResponse:
@@ -155,9 +158,7 @@ class CartService(BaseService):
         if cached is not None:
             return OrderSummaryResponse.model_validate(cached)
         cart = await self.get_or_create_cart(user)
-        await self.recalculate(cart)
-        await self._session.commit()
-        cart = await self._require_cart(user.id)
+        # Use stored totals for a fast summary; mutations keep totals authoritative.
         summary = self._summary.build(cart)
         await self._cache.set_json(self._cache.summary_key(user.id), summary.model_dump(mode="json"))
         return summary

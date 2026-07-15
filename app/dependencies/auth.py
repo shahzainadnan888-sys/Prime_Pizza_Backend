@@ -19,12 +19,12 @@ from app.dependencies.database import get_db_session
 from app.dependencies.redis import get_redis_client
 from app.dependencies.settings import get_app_settings
 from app.models.user import User
-from app.repositories.redis_auth import RedisOTPRepository
+from app.repositories.redis_auth import RedisAuthRepository
 from app.repositories.user import UserRepository
 from app.security.jwt import JWTService
-from app.services.auth import AuthService, build_default_otp_provider
-from app.services.otp_provider import OTPProvider
-from app.services.phone import PhoneValidationService
+from app.dependencies.email import get_email_service
+from app.services.auth import AuthService
+from app.services.email_service import EmailService
 from app.services.user_sync import UserSyncService
 
 _bearer = HTTPBearer(auto_error=False)
@@ -34,15 +34,6 @@ def get_jwt_service(settings: Settings = Depends(get_app_settings)) -> JWTServic
     return JWTService(settings)
 
 
-def get_phone_service() -> PhoneValidationService:
-    return PhoneValidationService()
-
-
-def get_otp_provider(settings: Settings = Depends(get_app_settings)) -> OTPProvider:
-    """Active OTP channel (local today; replace factory later for Twilio/Firebase)."""
-    return build_default_otp_provider(settings)
-
-
 def get_user_sync_service() -> UserSyncService:
     return UserSyncService()
 
@@ -50,34 +41,32 @@ def get_user_sync_service() -> UserSyncService:
 def get_redis_auth_repository(
     redis: Redis = Depends(get_redis_client),
     settings: Settings = Depends(get_app_settings),
-) -> RedisOTPRepository:
-    return RedisOTPRepository(redis, settings)
+) -> RedisAuthRepository:
+    return RedisAuthRepository(redis, settings)
 
 
 def get_auth_service(
     session: AsyncSession = Depends(get_db_session),
     settings: Settings = Depends(get_app_settings),
-    redis_auth: RedisOTPRepository = Depends(get_redis_auth_repository),
-    otp_provider: OTPProvider = Depends(get_otp_provider),
+    redis_auth: RedisAuthRepository = Depends(get_redis_auth_repository),
     jwt_service: JWTService = Depends(get_jwt_service),
-    phone_service: PhoneValidationService = Depends(get_phone_service),
     user_sync: UserSyncService = Depends(get_user_sync_service),
+    email_service: EmailService = Depends(get_email_service),
 ) -> AuthService:
     return AuthService(
         session=session,
         settings=settings,
         redis_auth=redis_auth,
-        otp_provider=otp_provider,
         jwt_service=jwt_service,
-        phone_service=phone_service,
         user_sync=user_sync,
+        email_service=email_service,
     )
 
 
 async def get_token_payload(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
     jwt_service: JWTService = Depends(get_jwt_service),
-    redis_auth: RedisOTPRepository = Depends(get_redis_auth_repository),
+    redis_auth: RedisAuthRepository = Depends(get_redis_auth_repository),
 ) -> dict:
     """Validate Bearer access token and return claims."""
     if credentials is None or credentials.scheme.lower() != "bearer":
@@ -133,12 +122,16 @@ async def get_authenticated_user(user: User = Depends(get_current_user)) -> User
 
 
 async def get_verified_user(user: User = Depends(get_current_user)) -> User:
-    """Ensure the authenticated user has completed phone verification."""
+    """Ensure the authenticated user has a verified account."""
     if not user.is_verified:
-        raise UnauthorizedException("Phone verification required")
+        raise UnauthorizedException("Account verification required")
     return user
 
 
-async def get_current_owner(user: User = Depends(get_current_user)) -> User:
-    """Require the platform owner role (authorization enforced)."""
-    return AuthorizationService().require_owner(user)
+async def get_current_chef(user: User = Depends(get_verified_user)) -> User:
+    """Require an active, verified kitchen chef — customers receive HTTP 403."""
+    return AuthorizationService().require_chef(user)
+
+
+# Backward-compatible alias used by older imports
+get_current_owner = get_current_chef

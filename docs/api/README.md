@@ -1,24 +1,25 @@
-# API endpoint details
+# API modules
 
-Split by module so files open quickly in the editor.
+Per-tag endpoint dumps generated with `api.md`.
 
-Start with the lean guide: [`../../api.md`](../../api.md)
-
-- [Health](health.md) — 10 endpoints
-- [Authentication](authentication.md) — 5 endpoints
-- [Users](users.md) — 17 endpoints
-- [Catalog](catalog.md) — 10 endpoints
-- [Cart](cart.md) — 8 endpoints
-- [Wishlist](wishlist.md) — 4 endpoints
-- [Checkout](checkout.md) — 1 endpoints
-- [Orders](orders.md) — 5 endpoints
-- [Admin Catalog](admin-catalog.md) — 24 endpoints
-- [Admin Orders](admin-orders.md) — 5 endpoints
-- [Admin Email](admin-email.md) — 1 endpoints
-- [Admin Dashboard](admin-dashboard.md) — 3 endpoints
-- [Admin Customers](admin-customers.md) — 4 endpoints
-- [Admin Coupons](admin-coupons.md) — 8 endpoints
-- [Admin Notifications](admin-notifications.md) — 3 endpoints
-- [Admin Settings](admin-settings.md) — 5 endpoints
-- [Admin Audit](admin-audit.md) — 1 endpoints
-- [Admin Search](admin-search.md) — 1 endpoints
+- [Health](health.md) (10)
+- [Authentication](authentication.md) (5)
+- [Account](account.md) (2)
+- [Users](users.md) (17)
+- [Catalog](catalog.md) (10)
+- [Cart](cart.md) (8)
+- [Wishlist](wishlist.md) (4)
+- [Checkout](checkout.md) (1)
+- [Orders](orders.md) (5)
+- [Contact](contact.md) (1)
+- [Kitchen Dashboard](kitchen-dashboard.md) (14)
+- [Admin Email](admin-email.md) (1)
+- [Admin Dashboard](admin-dashboard.md) (3)
+- [Admin Orders](admin-orders.md) (5)
+- [Admin Customers](admin-customers.md) (4)
+- [Admin Catalog](admin-catalog.md) (24)
+- [Admin Coupons](admin-coupons.md) (8)
+- [Admin Notifications](admin-notifications.md) (3)
+- [Admin Settings](admin-settings.md) (5)
+- [Admin Audit](admin-audit.md) (1)
+- [Admin Search](admin-search.md) (1)

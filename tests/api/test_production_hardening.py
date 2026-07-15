@@ -45,8 +45,9 @@ def test_health_services(client) -> None:
     assert "database" in body["data"]
     assert "redis" in body["data"]
     assert "cloudinary" in body["data"]
-    assert "resend" in body["data"]
-    assert "otp_provider" in body["data"]
+    assert "brevo" in body["data"]
+    assert "resend" not in body["data"]
+    assert "twilio" not in body["data"]
     assert "metrics" in body["data"]
     metrics = body["data"]["metrics"]
     assert "uptime_seconds" in metrics

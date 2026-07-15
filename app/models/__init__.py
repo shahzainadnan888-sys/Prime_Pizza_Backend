@@ -12,6 +12,7 @@ from app.models.catalog import (
     ProductVariant,
     VariantOption,
 )
+from app.models.contact_message import ContactMessage
 from app.models.coupon import Coupon, CouponUsage
 from app.models.deal import Deal, DealProduct
 from app.models.email_log import EmailLog
@@ -23,7 +24,6 @@ from app.models.order import (
     OrderNumberSequence,
     OrderTimelineEvent,
 )
-from app.models.otp_log import OTPLog
 from app.models.system_setting import SystemSetting
 from app.models.user import Address, User
 from app.models.wishlist import Wishlist, WishlistItem
@@ -37,6 +37,7 @@ __all__ = [
     "CartItem",
     "CartItemExtra",
     "Category",
+    "ContactMessage",
     "Coupon",
     "CouponUsage",
     "Deal",
@@ -44,7 +45,6 @@ __all__ = [
     "EmailLog",
     "Notification",
     "NotificationPreference",
-    "OTPLog",
     "Order",
     "OrderItem",
     "OrderItemExtra",

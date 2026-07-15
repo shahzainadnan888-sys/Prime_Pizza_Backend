@@ -44,6 +44,7 @@ from app.services.email import EmailService
 from app.services.order_cache import OrderCacheService
 from app.services.order_email import build_order_email_payload
 from app.services.order_summary import OrderSummaryService
+from app.services.order_sync import OrderSyncService
 
 STATUS_TITLES: dict[OrderStatus, str] = {
     OrderStatus.PENDING: "Order Created",
@@ -58,12 +59,20 @@ STATUS_TITLES: dict[OrderStatus, str] = {
 
 CUSTOMER_CANCELABLE = {OrderStatus.PENDING, OrderStatus.CONFIRMED}
 
-# Allowed owner status transitions (prevents illegal jumps / replay of terminal states).
+# Allowed chef/admin status transitions (prevents illegal jumps / replay of terminal states).
 ALLOWED_STATUS_TRANSITIONS: dict[OrderStatus, set[OrderStatus]] = {
-    OrderStatus.PENDING: {OrderStatus.CONFIRMED, OrderStatus.CANCELLED},
+    OrderStatus.PENDING: {
+        OrderStatus.CONFIRMED,
+        OrderStatus.PREPARING,
+        OrderStatus.CANCELLED,
+    },
     OrderStatus.CONFIRMED: {OrderStatus.PREPARING, OrderStatus.CANCELLED},
     OrderStatus.PREPARING: {OrderStatus.READY, OrderStatus.CANCELLED},
-    OrderStatus.READY: {OrderStatus.OUT_FOR_DELIVERY, OrderStatus.DELIVERED, OrderStatus.CANCELLED},
+    OrderStatus.READY: {
+        OrderStatus.OUT_FOR_DELIVERY,
+        OrderStatus.DELIVERED,
+        OrderStatus.CANCELLED,
+    },
     OrderStatus.OUT_FOR_DELIVERY: {OrderStatus.DELIVERED, OrderStatus.CANCELLED},
     OrderStatus.DELIVERED: {OrderStatus.REFUNDED},
     OrderStatus.CANCELLED: {OrderStatus.REFUNDED},
@@ -87,6 +96,7 @@ class OrderService(BaseService):
         cart_cache: CartCacheService,
         email_service: EmailService | None = None,
         dashboard_cache: DashboardCacheService | None = None,
+        order_sync: OrderSyncService | None = None,
     ) -> None:
         self._session = session
         self._settings = settings
@@ -98,6 +108,7 @@ class OrderService(BaseService):
         self._cart_cache = cart_cache
         self._email = email_service
         self._dashboard_cache = dashboard_cache
+        self._order_sync = order_sync or OrderSyncService()
         self._orders = OrderRepository(session)
         self._timeline = OrderTimelineRepository(session)
         self._sequences = OrderNumberSequenceRepository(session)
@@ -204,6 +215,9 @@ class OrderService(BaseService):
             kitchen_notes=order.kitchen_notes if include_internal else None,
             internal_notes=order.internal_notes if include_internal else None,
             delivery_address_snapshot=order.delivery_address_snapshot,
+            latitude=order.latitude,
+            longitude=order.longitude,
+            gps_accuracy=order.gps_accuracy,
             estimated_preparation_minutes=order.estimated_preparation_minutes,
             estimated_delivery_time=order.estimated_delivery_time,
             items=items,
@@ -288,11 +302,30 @@ class OrderService(BaseService):
             now = datetime.now(UTC)
             eta = now + timedelta(minutes=self._settings.estimated_delivery_minutes)
 
+            snapshot = self._address_snapshot(address)
+            # Prefer live device GPS from checkout over saved address coordinates.
+            if payload.latitude is not None:
+                snapshot["latitude"] = str(payload.latitude)
+            if payload.longitude is not None:
+                snapshot["longitude"] = str(payload.longitude)
+            if payload.gps_accuracy is not None:
+                snapshot["gps_accuracy"] = str(payload.gps_accuracy)
+
+            order_latitude = (
+                payload.latitude if payload.latitude is not None else address.latitude
+            )
+            order_longitude = (
+                payload.longitude if payload.longitude is not None else address.longitude
+            )
+
             order = Order(
                 order_number=order_number,
                 user_id=user.id,
                 address_id=address.id,
-                delivery_address_snapshot=self._address_snapshot(address),
+                delivery_address_snapshot=snapshot,
+                latitude=order_latitude,
+                longitude=order_longitude,
+                gps_accuracy=payload.gps_accuracy,
                 status=OrderStatus.PENDING,
                 currency=cart.currency,
                 subtotal=cart.subtotal,
@@ -411,7 +444,8 @@ class OrderService(BaseService):
                 order.order_number,
                 user.id,
             )
-            # Email only after a successful commit — failures must never undo the order.
+            await self._order_sync.sync_order_best_effort(detail)
+            # Email after commit — scheduled so place-order never waits on Brevo.
             if self._email is not None:
                 try:
                     email_payload = build_order_email_payload(
@@ -420,11 +454,12 @@ class OrderService(BaseService):
                         brand_name=self._settings.email_brand_name,
                         logo_url=self._settings.email_logo_url or None,
                     )
-                    self._email.notify_owner_new_order(email_payload)
+                    self._email.schedule_order_emails(email_payload)
                 except Exception:
                     logger.exception(
-                        "Email queued failed | order_id={} | post_commit_hook",
+                        "Order email schedule failed after successful place | order_id={} | order_number={}",
                         order.id,
+                        order.order_number,
                     )
             return self._to_detail(detail, include_internal=False)
 
@@ -521,6 +556,7 @@ class OrderService(BaseService):
         logger.info("Order cancelled | order_id={} | user_id={}", order_id, user.id)
         detail = await self._orders.get_detail(order_id)
         assert detail is not None
+        await self._order_sync.sync_order_best_effort(detail)
         return self._to_detail(detail, include_internal=False)
 
     async def list_admin_orders(
@@ -579,6 +615,7 @@ class OrderService(BaseService):
         logger.info("Status changed | order_id={} | status={}", order_id, payload.status.value)
         detail = await self._orders.get_detail(order_id)
         assert detail is not None
+        await self._order_sync.sync_order_best_effort(detail)
         return self._to_detail(detail, include_internal=True)
 
     async def update_payment(

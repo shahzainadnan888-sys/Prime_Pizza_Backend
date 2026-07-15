@@ -32,13 +32,13 @@ class OrderEmailLineItem:
 
 @dataclass(slots=True)
 class OrderEmailPayload:
-    """Serializable order snapshot used after commit for owner notification."""
+    """Serializable order snapshot used after commit for order emails."""
 
     order_id: UUID
     order_number: str
     order_created_at: datetime
     customer_name: str
-    customer_phone: str
+    customer_phone: str | None
     customer_email: str | None
     delivery_address: str
     payment_method: str
@@ -55,6 +55,7 @@ class OrderEmailPayload:
     items: list[OrderEmailLineItem]
     brand_name: str = "Prime Pizza"
     logo_url: str | None = None
+    estimated_delivery_time: datetime | None = None
 
 
 @dataclass(slots=True)

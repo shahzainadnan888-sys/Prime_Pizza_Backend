@@ -30,10 +30,10 @@ EXPECTED_TABLES = {
     "coupon_usages",
     "notifications",
     "user_preferences",
-    "otp_logs",
     "audit_logs",
     "system_settings",
     "email_logs",
+    "contact_messages",
 }
 
 
@@ -47,6 +47,10 @@ def test_user_has_soft_delete_and_version() -> None:
     assert "version" in table.c
     assert "created_by" in table.c
     assert "phone_number" in table.c
+    assert "email" in table.c
+    assert "password_hash" in table.c
+    assert "first_name" in table.c
+    assert "last_name" in table.c
     assert "avatar_public_id" in table.c
 
 
@@ -109,6 +113,9 @@ def test_order_management_tables() -> None:
     assert "internal_notes" in orders.c
     assert "coupon_code" in orders.c
     assert "estimated_preparation_minutes" in orders.c
+    assert "latitude" in orders.c
+    assert "longitude" in orders.c
+    assert "gps_accuracy" in orders.c
     items = Base.metadata.tables["order_items"]
     assert "image_url" in items.c
     assert "discount_price" in items.c

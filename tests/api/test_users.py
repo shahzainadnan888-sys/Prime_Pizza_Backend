@@ -24,9 +24,12 @@ from fastapi.testclient import TestClient
 def _user(*, role: UserRole = UserRole.CUSTOMER, verified: bool = True) -> User:
     return User(
         id=uuid4(),
+        first_name="Test",
+        last_name="User",
         phone_number="+923001234567",
         full_name="Customer 4567",
-        email="customer@example.com",
+        email="test@example.com",
+        password_hash="hashed",
         role=role,
         is_active=True,
         is_verified=verified,
@@ -411,3 +414,4 @@ def test_max_addresses_enforced(monkeypatch) -> None:
         assert response.status_code == 422
 
     app.dependency_overrides.clear()
+

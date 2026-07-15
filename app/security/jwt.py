@@ -34,8 +34,9 @@ class JWTService:
         self,
         *,
         user_id: UUID,
-        phone_number: str,
+        email: str,
         role: str,
+        phone_number: str | None = None,
     ) -> tuple[str, str, str, str]:
         """
         Return (access_token, refresh_token, access_jti, refresh_jti).
@@ -48,6 +49,7 @@ class JWTService:
         access_payload = {
             "sub": user_id_str,
             "user_id": user_id_str,
+            "email": email,
             "phone_number": phone_number,
             "role": role,
             "token_type": "access",
@@ -58,6 +60,7 @@ class JWTService:
         refresh_payload = {
             "sub": user_id_str,
             "user_id": user_id_str,
+            "email": email,
             "phone_number": phone_number,
             "role": role,
             "token_type": "refresh",

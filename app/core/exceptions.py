@@ -153,34 +153,6 @@ class InvalidPhoneException(AppException):
         )
 
 
-class InvalidOTPException(AppException):
-    def __init__(
-        self,
-        message: str = "Invalid verification code",
-        details: Any | None = None,
-    ) -> None:
-        super().__init__(
-            message,
-            code="invalid_otp",
-            status_code=400,
-            details=details,
-        )
-
-
-class ExpiredOTPException(AppException):
-    def __init__(
-        self,
-        message: str = "Verification code has expired",
-        details: Any | None = None,
-    ) -> None:
-        super().__init__(
-            message,
-            code="expired_otp",
-            status_code=400,
-            details=details,
-        )
-
-
 class InvalidTokenException(AppException):
     def __init__(
         self,

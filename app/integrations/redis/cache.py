@@ -61,12 +61,6 @@ class CacheService:
     async def exists(self, key: str) -> bool:
         return bool(await self._redis.exists(key))
 
-    async def set_otp(self, key: str, code: str, *, ttl_seconds: int = 300) -> bool:
-        return await self.set(f"otp:{key}", code, ttl_seconds=ttl_seconds)
-
-    async def get_otp(self, key: str) -> str | None:
-        return await self.get(f"otp:{key}")
-
     async def increment_rate_limit(self, key: str, *, window_seconds: int = 60) -> int:
         pipe = self._redis.pipeline()
         rate_key = f"rate:{key}"

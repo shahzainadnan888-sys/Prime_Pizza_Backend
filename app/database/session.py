@@ -37,11 +37,17 @@ async def init_db(settings: Settings) -> None:
     """Create the async engine and session factory."""
     global _engine, _async_session_factory
 
-    connect_args: dict[str, Any] = {}
+    # Fail fast on Neon cold-start / network stalls instead of hanging the API.
+    connect_args: dict[str, Any] = {
+        "timeout": 10,  # asyncpg connection timeout (seconds)
+        "command_timeout": 20,  # per-statement timeout (seconds)
+    }
     # Neon / serverless Postgres often benefits from disabling prepared statements
     # when using transaction poolers.
     if "neon.tech" in settings.database_url:
         connect_args["statement_cache_size"] = 0
+
+    pool_timeout = min(settings.db_pool_timeout_seconds, 10)
 
     _engine = create_async_engine(
         settings.database_url,
@@ -50,7 +56,7 @@ async def init_db(settings: Settings) -> None:
         pool_size=settings.db_pool_size,
         max_overflow=settings.db_max_overflow,
         pool_recycle=settings.db_pool_recycle_seconds,
-        pool_timeout=settings.db_pool_timeout_seconds,
+        pool_timeout=pool_timeout,
         connect_args=connect_args,
     )
     _async_session_factory = async_sessionmaker(

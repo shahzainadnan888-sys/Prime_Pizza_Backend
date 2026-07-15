@@ -3,13 +3,12 @@
 from app.schemas.auth import (
     AuthResponse,
     AuthUserResponse,
+    LoginRequest,
     LogoutRequest,
     MeResponse,
     RefreshTokenRequest,
-    SendOTPRequest,
-    SendOTPResponse,
+    RegisterRequest,
     TokenPairResponse,
-    VerifyOTPRequest,
 )
 from app.schemas.pagination import PaginationMeta, PaginationParams
 from app.schemas.response import (
@@ -25,6 +24,7 @@ __all__ = [
     "AuthUserResponse",
     "ErrorDetail",
     "ErrorResponse",
+    "LoginRequest",
     "LogoutRequest",
     "MeResponse",
     "MessageResponse",
@@ -32,9 +32,7 @@ __all__ = [
     "PaginationMeta",
     "PaginationParams",
     "RefreshTokenRequest",
-    "SendOTPRequest",
-    "SendOTPResponse",
+    "RegisterRequest",
     "SuccessResponse",
     "TokenPairResponse",
-    "VerifyOTPRequest",
 ]

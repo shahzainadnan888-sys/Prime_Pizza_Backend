@@ -114,34 +114,34 @@ class RateLimitingMiddleware(BaseHTTPMiddleware):
             s.rate_limit_default_burst,
         )
 
-    async def _increment(self, key: str, window_seconds: int) -> int:
-        redis = get_redis()
-        pipe = redis.pipeline()
-        pipe.incr(key)
-        pipe.expire(key, window_seconds, nx=True)
-        results = await pipe.execute()
-        return int(results[0])
-
     async def _check_windows(
         self,
         *,
         identity: str,
         policy: RateLimitPolicy,
     ) -> tuple[bool, str | None, int]:
-        """Return (allowed, retry_after_hint, remaining_burst)."""
+        """Return (allowed, retry_after_hint, remaining_burst) via one Redis pipeline."""
         minute_key = f"rl:{policy.name}:{identity}:m:{int(time.time() // 60)}"
         hour_key = f"rl:{policy.name}:{identity}:h:{int(time.time() // 3600)}"
         burst_key = f"rl:{policy.name}:{identity}:b:{int(time.time() // 10)}"
 
-        minute_count = await self._increment(minute_key, 60)
+        redis = get_redis()
+        pipe = redis.pipeline()
+        pipe.incr(minute_key)
+        pipe.expire(minute_key, 60, nx=True)
+        pipe.incr(hour_key)
+        pipe.expire(hour_key, 3600, nx=True)
+        pipe.incr(burst_key)
+        pipe.expire(burst_key, 10, nx=True)
+        results = await pipe.execute()
+        minute_count = int(results[0])
+        hour_count = int(results[2])
+        burst_count = int(results[4])
+
         if minute_count > policy.per_minute:
             return False, "60", max(policy.burst - minute_count, 0)
-
-        hour_count = await self._increment(hour_key, 3600)
         if hour_count > policy.per_hour:
             return False, "3600", max(policy.burst - hour_count, 0)
-
-        burst_count = await self._increment(burst_key, 10)
         if burst_count > policy.burst:
             return False, "10", 0
 

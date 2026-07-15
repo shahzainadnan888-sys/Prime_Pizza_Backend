@@ -26,8 +26,12 @@ from fastapi.testclient import TestClient
 def _user(*, role: UserRole) -> User:
     return User(
         id=uuid4(),
+        first_name="Test",
+        last_name="User",
         phone_number="+923001234567",
         full_name="Test User",
+        email="test@example.com",
+        password_hash="hashed",
         role=role,
         is_active=True,
         is_verified=True,
@@ -218,7 +222,7 @@ def test_deals_public(monkeypatch) -> None:
 def test_admin_category_requires_owner(monkeypatch) -> None:
     app = create_app(settings=get_settings())
     customer = _user(role=UserRole.CUSTOMER)
-    owner = _user(role=UserRole.OWNER)
+    owner = _user(role=UserRole.CHEF)
     cat = _category()
 
     async def _create(self, payload):
@@ -242,7 +246,7 @@ def test_admin_category_requires_owner(monkeypatch) -> None:
 
 def test_admin_product_and_image_flow(monkeypatch) -> None:
     app = create_app(settings=get_settings())
-    owner = _user(role=UserRole.OWNER)
+    owner = _user(role=UserRole.CHEF)
     _override_auth(app, owner)
     product_id = uuid4()
     item = _product_list_item()
@@ -324,7 +328,7 @@ def test_admin_product_and_image_flow(monkeypatch) -> None:
 
 def test_admin_deal_crud(monkeypatch) -> None:
     app = create_app(settings=get_settings())
-    owner = _user(role=UserRole.OWNER)
+    owner = _user(role=UserRole.CHEF)
     _override_auth(app, owner)
     now = datetime.now(UTC)
     deal_id = uuid4()
@@ -375,7 +379,7 @@ def test_admin_deal_crud(monkeypatch) -> None:
 
 def test_product_validation_rejects_bad_discount() -> None:
     app = create_app(settings=get_settings())
-    owner = _user(role=UserRole.OWNER)
+    owner = _user(role=UserRole.CHEF)
     _override_auth(app, owner)
     with TestClient(app) as client:
         response = client.post(
@@ -389,3 +393,4 @@ def test_product_validation_rejects_bad_discount() -> None:
         )
         assert response.status_code == 422
     app.dependency_overrides.clear()
+

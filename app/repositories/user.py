@@ -31,7 +31,7 @@ class UserRepository(BaseRepository[User]):
 
     async def get_by_email(self, email: str) -> User | None:
         stmt = select(User).where(
-            User.email == email,
+            User.email == email.strip().lower(),
             User.deleted_at.is_(None),
         )
         result = await self.session.execute(stmt)
@@ -44,7 +44,7 @@ class UserRepository(BaseRepository[User]):
         limit: int = 50,
         offset: int = 0,
     ) -> list[User]:
-        """Owner search across phone, email, and name."""
+        """Search across phone, email, and name."""
         pattern = f"%{query.strip()}%"
         stmt = (
             select(User)
@@ -54,6 +54,8 @@ class UserRepository(BaseRepository[User]):
                     User.phone_number.ilike(pattern),
                     User.email.ilike(pattern),
                     User.full_name.ilike(pattern),
+                    User.first_name.ilike(pattern),
+                    User.last_name.ilike(pattern),
                 ),
             )
             .order_by(User.created_at.desc())
@@ -82,7 +84,11 @@ class UserRepository(BaseRepository[User]):
     async def search_by_name(self, name: str) -> list[User]:
         stmt = select(User).where(
             User.deleted_at.is_(None),
-            User.full_name.ilike(f"%{name.strip()}%"),
+            or_(
+                User.full_name.ilike(f"%{name.strip()}%"),
+                User.first_name.ilike(f"%{name.strip()}%"),
+                User.last_name.ilike(f"%{name.strip()}%"),
+            ),
         )
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
@@ -102,7 +108,14 @@ class UserRepository(BaseRepository[User]):
         if filters.date_to is not None:
             stmt = stmt.where(User.created_at <= filters.date_to)
         if filters.name:
-            stmt = stmt.where(User.full_name.ilike(f"%{filters.name.strip()}%"))
+            pattern = f"%{filters.name.strip()}%"
+            stmt = stmt.where(
+                or_(
+                    User.full_name.ilike(pattern),
+                    User.first_name.ilike(pattern),
+                    User.last_name.ilike(pattern),
+                )
+            )
         if filters.phone:
             stmt = stmt.where(User.phone_number.ilike(f"%{filters.phone.strip()}%"))
         if filters.email:
@@ -112,6 +125,8 @@ class UserRepository(BaseRepository[User]):
             stmt = stmt.where(
                 or_(
                     User.full_name.ilike(pattern),
+                    User.first_name.ilike(pattern),
+                    User.last_name.ilike(pattern),
                     User.phone_number.ilike(pattern),
                     User.email.ilike(pattern),
                 )
@@ -152,19 +167,24 @@ class UserRepository(BaseRepository[User]):
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
-    async def create_user(
+    async def create_registered_user(
         self,
         *,
-        phone_number: str,
+        first_name: str,
+        last_name: str,
+        email: str,
+        password_hash: str,
         role: UserRole,
-        full_name: str | None = None,
+        phone_number: str | None = None,
     ) -> User:
-        display = full_name or (
-            "Owner" if role == UserRole.OWNER else f"Customer {phone_number[-4:]}"
-        )
+        full_name = f"{first_name.strip()} {last_name.strip()}".strip()
         user = User(
+            first_name=first_name.strip(),
+            last_name=last_name.strip(),
+            full_name=full_name,
+            email=email.strip().lower(),
+            password_hash=password_hash,
             phone_number=phone_number,
-            full_name=display,
             role=role,
             is_active=True,
             is_verified=True,
@@ -172,11 +192,54 @@ class UserRepository(BaseRepository[User]):
         )
         return await self.add(user)
 
-    async def create_customer(self, *, phone_number: str, full_name: str | None = None) -> User:
+    async def create_user(
+        self,
+        *,
+        phone_number: str | None,
+        role: UserRole,
+        full_name: str | None = None,
+        email: str | None = None,
+        password_hash: str | None = None,
+        first_name: str | None = None,
+        last_name: str | None = None,
+    ) -> User:
+        """Legacy helper — prefer create_registered_user for email/password signup."""
+        fn = (first_name or "").strip() or ("Kitchen" if role == UserRole.CHEF else "Customer")
+        ln = (last_name or "").strip() or ("Chef" if role == UserRole.CHEF else "")
+        display = full_name or f"{fn} {ln}".strip()
+        if not email:
+            msg = "email is required when creating a user"
+            raise ValueError(msg)
+        if not password_hash:
+            msg = "password_hash is required when creating a user"
+            raise ValueError(msg)
+        return await self.create_registered_user(
+            first_name=fn,
+            last_name=ln or "User",
+            email=email,
+            password_hash=password_hash,
+            phone_number=phone_number,
+            role=role,
+        )
+
+    async def create_customer(
+        self,
+        *,
+        phone_number: str | None = None,
+        full_name: str | None = None,
+        email: str,
+        password_hash: str,
+        first_name: str | None = None,
+        last_name: str | None = None,
+    ) -> User:
         return await self.create_user(
             phone_number=phone_number,
             role=UserRole.CUSTOMER,
             full_name=full_name,
+            email=email,
+            password_hash=password_hash,
+            first_name=first_name,
+            last_name=last_name,
         )
 
     async def mark_login(self, user: User, *, role: UserRole | None = None) -> User:
