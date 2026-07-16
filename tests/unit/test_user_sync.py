@@ -44,4 +44,3 @@ async def test_users_json_mirror_upsert_and_update(tmp_path: Path) -> None:
 
     await mirror.remove(str(user.id))
     assert mirror.read_all() == []
-

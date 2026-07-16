@@ -112,6 +112,7 @@ class CartService(BaseService):
                     product_id=item.product_id,
                     product_name=item.product.name if item.product else None,
                     product_slug=item.product.slug if item.product else None,
+                    image_url=item.product.image_url if item.product else None,
                     variant_id=item.variant_id,
                     variant_name=item.variant.name if item.variant else None,
                     quantity=item.quantity,

@@ -164,6 +164,22 @@ class OrderService(BaseService):
             "latitude": str(address.latitude) if address.latitude is not None else None,
             "longitude": str(address.longitude) if address.longitude is not None else None,
             "delivery_notes": address.delivery_notes,
+            "delivery_type": "delivery",
+            "fulfillment_type": "delivery",
+        }
+
+    def _pickup_snapshot(self, user: User) -> dict:
+        """Restaurant pickup — no saved customer address required."""
+        return {
+            "delivery_type": "pickup",
+            "fulfillment_type": "pickup",
+            "recipient_name": user.full_name or "Customer",
+            "phone_number": user.phone_number,
+            "pickup_location": "Prime Pizza — Tarlai Kalan, Islamabad",
+            "street": "Shop 12, Tarlai Kalan Main Road",
+            "city": "Islamabad",
+            "province": "Islamabad Capital Territory",
+            "country": "Pakistan",
         }
 
     def _to_item_response(self, item: OrderItem) -> OrderItemResponse:
@@ -296,13 +312,18 @@ class OrderService(BaseService):
             if not active_items:
                 raise ValidationException("Cart is empty")
 
-            address = await self._resolve_address(user, payload.address_id)
+            address = None
+            snapshot: dict
+            if payload.address_id is None:
+                snapshot = self._pickup_snapshot(user)
+            else:
+                address = await self._resolve_address(user, payload.address_id)
+                snapshot = self._address_snapshot(address)
             summary = self._summary.build(cart)
             order_number = await self._next_order_number()
             now = datetime.now(UTC)
             eta = now + timedelta(minutes=self._settings.estimated_delivery_minutes)
 
-            snapshot = self._address_snapshot(address)
             # Prefer live device GPS from checkout over saved address coordinates.
             if payload.latitude is not None:
                 snapshot["latitude"] = str(payload.latitude)
@@ -312,16 +333,20 @@ class OrderService(BaseService):
                 snapshot["gps_accuracy"] = str(payload.gps_accuracy)
 
             order_latitude = (
-                payload.latitude if payload.latitude is not None else address.latitude
+                payload.latitude
+                if payload.latitude is not None
+                else (address.latitude if address is not None else None)
             )
             order_longitude = (
-                payload.longitude if payload.longitude is not None else address.longitude
+                payload.longitude
+                if payload.longitude is not None
+                else (address.longitude if address is not None else None)
             )
 
             order = Order(
                 order_number=order_number,
                 user_id=user.id,
-                address_id=address.id,
+                address_id=address.id if address is not None else None,
                 delivery_address_snapshot=snapshot,
                 latitude=order_latitude,
                 longitude=order_longitude,
@@ -445,7 +470,7 @@ class OrderService(BaseService):
                 user.id,
             )
             await self._order_sync.sync_order_best_effort(detail)
-            # Email after commit — scheduled so place-order never waits on Brevo.
+            # Customer confirmation is awaited; kitchen alert is queued after it succeeds.
             if self._email is not None:
                 try:
                     email_payload = build_order_email_payload(
@@ -454,12 +479,13 @@ class OrderService(BaseService):
                         brand_name=self._settings.email_brand_name,
                         logo_url=self._settings.email_logo_url or None,
                     )
-                    self._email.schedule_order_emails(email_payload)
+                    await self._email.notify_order_placed(email_payload)
                 except Exception:
                     logger.exception(
-                        "Order email schedule failed after successful place | order_id={} | order_number={}",
+                        "Order confirmation email failed after successful place | order_id={} | order_number={} | recipient={}",
                         order.id,
                         order.order_number,
+                        user.email,
                     )
             return self._to_detail(detail, include_internal=False)
 

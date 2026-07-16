@@ -83,21 +83,22 @@ class AuthService(BaseService):
         )
         await self._session.commit()
         await self._session.refresh(user)
-        await self._user_sync.sync_user_best_effort(user)
 
-        # Welcome email must not block/fail registration (prevents FE timeouts after commit).
+        # Send welcome immediately after commit (before mirror sync / token work).
         if self._email is not None:
             try:
-                self._email.schedule_welcome_email(
+                await self._email.notify_welcome_registration(
                     customer_name=user.full_name or user.first_name,
-                    customer_email=user.email,
+                    customer_email=email,
                 )
             except Exception:
                 logger.exception(
-                    "Welcome email schedule failed after registration | user_id={} | email={}",
+                    "Welcome email failed after registration | user_id={} | email={}",
                     user.id,
                     email,
                 )
+
+        await self._user_sync.sync_user_best_effort(user)
 
         tokens = await self._issue_tokens(user)
         logger.info(

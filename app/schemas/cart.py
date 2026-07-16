@@ -64,6 +64,7 @@ class CartItemResponse(BaseModel):
     product_id: UUID
     product_name: str | None = None
     product_slug: str | None = None
+    image_url: str | None = None
     variant_id: UUID | None = None
     variant_name: str | None = None
     quantity: int

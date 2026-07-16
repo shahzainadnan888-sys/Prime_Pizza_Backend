@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import json
 from pathlib import Path
 from typing import Any
 
@@ -10,13 +12,13 @@ from loguru import logger
 from app.data_mirror.base import BaseJsonMirror
 
 DEFAULT_USERS_JSON_PATH = Path("data") / "user.json"
-# Legacy filename kept for one release of dual-compat reads during migration.
+# Kept in sync with user.json for tooling that still reads the legacy name.
 LEGACY_USERS_JSON_PATH = Path("data") / "users.json"
 
 
 class UsersJsonMirror(BaseJsonMirror):
     """
-    Mirrors `User` rows into `data/user.json` after Postgres writes.
+    Mirrors `User` rows into `data/user.json` (and `users.json`) after Postgres writes.
 
     PostgreSQL remains the source of truth. Mirror failures are logged and
     re-raised so callers can decide whether to surface them.
@@ -30,6 +32,7 @@ class UsersJsonMirror(BaseJsonMirror):
             path.write_text(LEGACY_USERS_JSON_PATH.read_text(encoding="utf-8"), encoding="utf-8")
             logger.info("Migrated legacy users.json → user.json")
         super().__init__(path)
+        self._mirror_legacy = file_path is None
 
     def serialize(self, entity: Any) -> dict[str, Any]:
         role = getattr(entity, "role", None)
@@ -49,6 +52,18 @@ class UsersJsonMirror(BaseJsonMirror):
             "updated_at": getattr(entity, "updated_at", None),
         }
 
+    def _write_both_sync(self, rows: list[dict[str, Any]]) -> None:
+        self.write_all(rows)
+        if self._mirror_legacy:
+            LEGACY_USERS_JSON_PATH.parent.mkdir(parents=True, exist_ok=True)
+            LEGACY_USERS_JSON_PATH.write_text(
+                json.dumps(rows, indent=2, ensure_ascii=False, default=str) + "\n",
+                encoding="utf-8",
+            )
+
+    async def _write_both(self, rows: list[dict[str, Any]]) -> None:
+        await asyncio.to_thread(self._write_both_sync, rows)
+
     async def upsert(self, entity: Any) -> None:
         try:
             rows = await self.read_all_async()
@@ -62,7 +77,7 @@ class UsersJsonMirror(BaseJsonMirror):
                     break
             if not replaced:
                 rows.append(serialized)
-            await self.write_all_async(rows)
+            await self._write_both(rows)
             logger.info("User mirrored to user.json | id={}", entity_id)
         except Exception:
             logger.exception(
@@ -75,7 +90,7 @@ class UsersJsonMirror(BaseJsonMirror):
         try:
             rows = await self.read_all_async()
             filtered = [row for row in rows if str(row.get("id")) != entity_id]
-            await self.write_all_async(filtered)
+            await self._write_both(filtered)
             logger.info("User removed from user.json | id={}", entity_id)
         except Exception:
             logger.exception("Failed to remove user from user.json | id={}", entity_id)

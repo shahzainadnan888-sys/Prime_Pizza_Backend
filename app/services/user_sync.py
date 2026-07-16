@@ -10,7 +10,7 @@ from app.services.base import BaseService
 
 
 class UserSyncService(BaseService):
-    """Keep `data/user.json` synchronized after Postgres user writes."""
+    """Keep `data/user.json` / `data/users.json` synchronized after Postgres user writes."""
 
     service_name = "user_sync"
 

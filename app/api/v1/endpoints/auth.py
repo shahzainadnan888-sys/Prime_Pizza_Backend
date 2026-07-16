@@ -29,7 +29,8 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
     summary="Register a customer account",
     description=(
         "Creates a customer with email/password (bcrypt), persists to PostgreSQL, "
-        "mirrors to data/users.json, and returns a JWT access + refresh pair."
+        "mirrors to data/user.json and data/users.json, sends a welcome email to "
+        "the registered address, and returns a JWT access + refresh pair."
     ),
     responses={
         201: {"description": "Registered — returns token pair and user profile"},

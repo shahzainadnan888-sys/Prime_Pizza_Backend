@@ -68,6 +68,20 @@ class KitchenService(BaseService):
         )
         return "delivery" if has_address else "pickup"
 
+    def _address_summary(self, order: Order) -> str | None:
+        snapshot = order.delivery_address_snapshot or {}
+        if self._delivery_type(order) == "pickup":
+            store = str(snapshot.get("pickup_location") or "").strip()
+            if store:
+                return store
+        parts = [
+            str(snapshot.get("street") or "").strip(),
+            str(snapshot.get("area") or "").strip(),
+            str(snapshot.get("city") or "").strip(),
+        ]
+        cleaned = [part for part in parts if part]
+        return ", ".join(cleaned) if cleaned else None
+
     def _to_card(self, order: Order) -> KitchenOrderCardResponse:
         snapshot = order.delivery_address_snapshot or {}
         customer = order.user
@@ -80,6 +94,7 @@ class KitchenService(BaseService):
             str(snapshot.get("phone_number") or "").strip()
             or (customer.phone_number if customer else None)
         )
+        customer_email = customer.email if customer else None
         notes = order.notes or order.kitchen_notes
         items = [
             KitchenOrderItemResponse(
@@ -95,6 +110,7 @@ class KitchenService(BaseService):
             id=order.id,
             order_number=order.order_number,
             customer_name=customer_name,
+            customer_email=customer_email,
             customer_phone=customer_phone,
             items=items,
             special_instructions=notes,
@@ -110,6 +126,8 @@ class KitchenService(BaseService):
             status=order.status,
             estimated_time=order.estimated_delivery_time,
             estimated_preparation_minutes=order.estimated_preparation_minutes,
+            grand_total=order.grand_total,
+            address_summary=self._address_summary(order),
             latitude=float(order.latitude) if order.latitude is not None else None,
             longitude=float(order.longitude) if order.longitude is not None else None,
             gps_accuracy=float(order.gps_accuracy) if order.gps_accuracy is not None else None,

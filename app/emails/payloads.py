@@ -93,6 +93,7 @@ class EmailMessage:
     html: str
     text: str
     order_id: UUID | None = None
+    reply_to: str | None = None
     attachments: list[AttachmentPayload] = field(default_factory=list)
     tags: list[dict[str, str]] = field(default_factory=list)
     meta: dict[str, Any] = field(default_factory=dict)

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 from uuid import UUID
 
 from pydantic import BaseModel, Field, computed_field, field_validator
@@ -23,6 +24,7 @@ class KitchenOrderCardResponse(BaseModel):
     id: UUID
     order_number: str
     customer_name: str
+    customer_email: str | None = None
     customer_phone: str | None
     items: list[KitchenOrderItemResponse]
     special_instructions: str | None
@@ -34,6 +36,8 @@ class KitchenOrderCardResponse(BaseModel):
     status: OrderStatus
     estimated_time: datetime | None
     estimated_preparation_minutes: int | None = None
+    grand_total: Decimal | None = None
+    address_summary: str | None = None
     latitude: float | None = None
     longitude: float | None = None
     gps_accuracy: float | None = None

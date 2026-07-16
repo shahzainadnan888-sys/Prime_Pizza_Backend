@@ -213,7 +213,7 @@ class EmailService(BaseService):
         )
         text = plain_text_from_context(
             [
-                f"Welcome to {brand}, {customer_name}!",
+                f"Your {brand} account is ready, {customer_name}!",
                 f"Your login email is {customer_email}.",
                 "Thanks for joining us — browse the menu and order anytime.",
             ]
@@ -221,11 +221,12 @@ class EmailService(BaseService):
         return EmailMessage(
             template_key=EmailTemplateKey.WELCOME,
             to=[customer_email],
-            subject=f"Welcome to {brand}",
+            subject=f"Your {brand} account is ready",
             html=html,
             text=text,
-            tags=[{"name": "category", "value": "welcome"}],
-            meta={"purpose": "welcome"},
+            reply_to=str(self._settings.brevo_sender_email),
+            tags=[{"name": "category", "value": "account_confirmation"}],
+            meta={"purpose": "welcome", "customer_email": customer_email},
         )
 
     def build_chef_notification_message(self, payload: OrderEmailPayload) -> EmailMessage:
@@ -370,6 +371,7 @@ class EmailService(BaseService):
             subject=f"[Contact] {subject}",
             html=html,
             text=text,
+            reply_to=email,
             tags=[{"name": "category", "value": "contact_admin"}],
             meta={
                 "from_email": email,
@@ -537,6 +539,7 @@ class EmailService(BaseService):
                         subject=subject,
                         html=message.html,
                         text=message.text,
+                        reply_to=message.reply_to,
                         tags=tag_values or None,
                     )
                     log.status = EmailDeliveryStatus.SENT
@@ -640,8 +643,24 @@ class EmailService(BaseService):
 
         self._schedule(_send(), label=EmailTemplateKey.WELCOME.value)
 
+    def schedule_chef_notification(self, payload: OrderEmailPayload) -> None:
+        """Queue kitchen alert after customer confirmation is delivered."""
+
+        async def _send() -> None:
+            if not payload.brand_name:
+                payload.brand_name = self._settings.email_brand_name
+            chef = await self.send_chef_notification(payload)
+            logger.info(
+                "Chef notification delivered | email_log_id={} | order_number={} | recipients={}",
+                chef.id,
+                payload.order_number,
+                chef.meta.get("recipients") if chef.meta else None,
+            )
+
+        self._schedule(_send(), label=EmailTemplateKey.ORDER_NOTIFICATION.value)
+
     def schedule_order_emails(self, payload: OrderEmailPayload) -> None:
-        """Send customer confirmation + chef notification after order commit."""
+        """Backward-compatible: confirmation awaited + chef notification queued."""
 
         async def _send_all() -> None:
             if not payload.brand_name:
@@ -660,21 +679,46 @@ class EmailService(BaseService):
                     payload.order_number,
                     payload.customer_email,
                 )
-            try:
-                chef = await self.send_chef_notification(payload)
-                logger.info(
-                    "Chef notification delivered | email_log_id={} | order_number={} | recipients={}",
-                    chef.id,
-                    payload.order_number,
-                    chef.meta.get("recipients") if chef.meta else None,
-                )
-            except Exception:
-                logger.exception(
-                    "Chef notification failed | order_number={}",
-                    payload.order_number,
-                )
+                return
+            self.schedule_chef_notification(payload)
 
         self._schedule(_send_all(), label="order_emails")
+
+    async def notify_order_placed(self, payload: OrderEmailPayload) -> EmailLog:
+        """
+        Deliver order confirmation to the customer's registered email (awaited).
+
+        Kitchen notification is queued best-effort after confirmation succeeds.
+        """
+        if not payload.brand_name:
+            payload.brand_name = self._settings.email_brand_name
+        log = await self.send_order_confirmation(payload)
+        logger.info(
+            "Order confirmation delivered | email_log_id={} | order_number={} | recipient={}",
+            log.id,
+            payload.order_number,
+            payload.customer_email,
+        )
+        self.schedule_chef_notification(payload)
+        return log
+
+    async def notify_welcome_registration(
+        self,
+        *,
+        customer_name: str,
+        customer_email: str,
+    ) -> EmailLog:
+        """Deliver welcome email to the customer's registered email (awaited)."""
+        log = await self.send_welcome_email(
+            customer_name=customer_name,
+            customer_email=customer_email,
+        )
+        logger.info(
+            "Welcome email delivered | email_log_id={} | recipient={}",
+            log.id,
+            customer_email,
+        )
+        return log
 
     def enqueue_welcome_email(self, *, customer_name: str, customer_email: str) -> None:
         """Backward-compatible alias for schedule_welcome_email()."""
@@ -769,11 +813,12 @@ class EmailService(BaseService):
         client_ip: str | None = None,
     ) -> None:
         """
-        Await admin inbox delivery; queue customer auto-reply best-effort.
+        Deliver admin inbox email to CONTACT_RECEIVER_EMAIL (awaited).
 
         Raises ExternalServiceException (HTTP 502) when Brevo admin delivery fails.
+        Customer auto-reply is queued best-effort after the admin mail succeeds.
         """
-        await self.send_contact_email(
+        log = await self.send_contact_email(
             name=name,
             email=email,
             phone=phone,
@@ -781,6 +826,11 @@ class EmailService(BaseService):
             message=message,
             submission_time=submission_time,
             client_ip=client_ip,
+        )
+        logger.info(
+            "Contact admin notification delivered | email_log_id={} | recipient={}",
+            log.id,
+            self._settings.contact_receiver_email,
         )
         self._schedule_contact_confirmation(name=name, email=email, subject=subject)
 
