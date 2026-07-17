@@ -12,7 +12,7 @@ from app.config.settings import Settings
 from app.core.exceptions import ExternalServiceException, ValidationException
 from app.integrations.cloudinary.client import is_cloudinary_configured
 from app.services.base import BaseService
-from app.utils.images import is_allowed_image, is_valid_image_content
+from app.utils.images import is_allowed_image, is_valid_image_content, sniff_image_type
 
 
 @dataclass(frozen=True)
@@ -54,7 +54,17 @@ class AvatarService(BaseService):
         content_type: str | None,
         size: int,
     ) -> UploadedImage:
-        self.validate_upload(filename=filename, content_type=content_type, size=size)
+        # Browsers (especially Windows) sometimes omit File.type — sniff magic bytes.
+        resolved_type = content_type
+        if (
+            not resolved_type
+            or resolved_type not in self._settings.avatar_allowed_content_types
+        ):
+            sniffed = sniff_image_type(file_obj)
+            if sniffed:
+                resolved_type = "image/jpeg" if sniffed == "jpeg" else f"image/{sniffed}"
+
+        self.validate_upload(filename=filename, content_type=resolved_type, size=size)
         if not is_valid_image_content(file_obj):
             raise ValidationException("Uploaded file is not a valid image")
         if not is_cloudinary_configured():
@@ -83,9 +93,9 @@ class AvatarService(BaseService):
         except ExternalServiceException:
             raise
         except Exception as exc:
-            logger.error("Cloudinary avatar upload failed | user_id={}", user_id)
+            logger.error("Cloudinary avatar upload failed | user_id={} | error={}", user_id, exc)
             raise ExternalServiceException(
-                "Failed to upload avatar. Please try again later.",
+                "Failed to upload avatar. Check Cloudinary credentials and try again.",
                 service="cloudinary",
             ) from exc
 

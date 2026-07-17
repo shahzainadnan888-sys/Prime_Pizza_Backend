@@ -14,14 +14,24 @@ def init_cloudinary(settings: Settings) -> None:
     """Configure the Cloudinary SDK globally."""
     global _configured
 
+    cloud_name = (settings.cloudinary_cloud_name or "").strip()
+    if not cloud_name or " " in cloud_name:
+        logger.error(
+            "Invalid CLOUDINARY_CLOUD_NAME={!r}. Use the cloud name from the "
+            "Cloudinary dashboard (no spaces), e.g. 'dxxxxx' or 'prime-pizza'.",
+            settings.cloudinary_cloud_name,
+        )
+        _configured = False
+        return
+
     cloudinary.config(
-        cloud_name=settings.cloudinary_cloud_name,
+        cloud_name=cloud_name,
         api_key=settings.cloudinary_api_key,
         api_secret=settings.cloudinary_api_secret,
         secure=True,
     )
     _configured = True
-    logger.info("Cloudinary client configured")
+    logger.info("Cloudinary client configured | cloud_name={}", cloud_name)
 
 
 def close_cloudinary() -> None:
