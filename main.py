@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uvicorn
 from app.config.settings import get_settings
+from app.main import app  # noqa: F401  ASGI app for `fastapi run` auto-discovery
 
 
 def main() -> None:
